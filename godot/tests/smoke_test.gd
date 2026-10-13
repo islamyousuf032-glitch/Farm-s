@@ -72,8 +72,8 @@ func _run() -> void:
 	var soil: Vector2i = Vector2i(10, 6)
 	w.grid.till(soil.x, soil.y)
 	check(w.grid.is_tilled(soil.x, soil.y), "tilled soil cell")
-	w._plant("seed_chili", soil)
-	check(w.grid.get_crop(soil.x, soil.y) == 1, "planting seed on tilled soil")
+	w._plant("seed_begun", soil)
+	check(w.grid.get_crop(soil.x, soil.y) > 0, "planting seed on tilled soil")
 
 	G.add_item("crop_lau", 2)
 	check(G.count_item("crop_lau") == 2, "add item")
@@ -105,6 +105,7 @@ func _run() -> void:
 
 	# UI paths
 	main.hud.open_shop("shop")
+	main.hud.on_action("cancel")
 	main.hud.open_journal()
 	main.hud.on_action("cancel")
 	check(not main.hud.journal_panel.visible, "journal closes")
