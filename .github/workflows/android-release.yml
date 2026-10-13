@@ -65,7 +65,7 @@ jobs:
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKM" ]; then SDKM=$(find "$ANDROID_HOME" -name sdkmanager -type f | head -1); fi
           yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" --install "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" > sdk.log 2>&1 || { tail -40 sdk.log; exit 1; }
+          "$SDKM" --install "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" "ndk;28.1.13356709" > sdk.log 2>&1 || { tail -40 sdk.log; exit 1; }
           tail -2 sdk.log
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
@@ -94,12 +94,6 @@ jobs:
       - name: Install SCons
         run: sudo apt-get update -qq && sudo apt-get install -y -qq scons && scons --version | head -2
 
-      - uses: nttld/setup-ndk@v1
-        id: ndk
-        with:
-          ndk-version: r26d
-          add-to-path: false
-
       - name: Fetch godot-cpp (4.5 bindings, compatible with 4.7)
         run: git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git native/godot-cpp
 
@@ -113,8 +107,6 @@ jobs:
 
       - name: Build C++ core for Android arm64
         working-directory: native
-        env:
-          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           set +e
