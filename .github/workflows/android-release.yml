@@ -90,8 +90,8 @@ jobs:
       - name: Install SCons
         run: sudo apt-get update -qq && sudo apt-get install -y -qq scons && scons --version | head -2
 
-      - name: Fetch godot-cpp (4.5 bindings, compatible with 4.7)
-        run: git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git native/godot-cpp
+      - name: Fetch godot-cpp (master ships extension_api-4-7.json)
+        run: git clone --depth 1 https://github.com/godotengine/godot-cpp.git native/godot-cpp
 
       - name: Build C++ core for Linux (used by headless tests)
         working-directory: native
