@@ -1,5 +1,8 @@
 name: Godot probe (temporary)
 on:
+  push:
+    branches: [arena/279b11b0-farm-s]
+    paths: [".github/workflows/godot-probe.yml"]
   workflow_dispatch:
 permissions:
   contents: read
