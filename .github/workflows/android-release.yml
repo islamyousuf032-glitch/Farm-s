@@ -109,13 +109,13 @@ jobs:
         run: |
           mkdir -p build
           set +e
-          godot --headless --path godot --export-release "Android" "$GITHUB_WORKSPACE/build/app.apk" > export.log 2>&1
+          stdbuf -oL -eL godot --headless --verbose --path godot --export-release "Android" "$GITHUB_WORKSPACE/build/app.apk" > export.log 2>&1
           CODE=$?
           set -e
           tail -40 export.log
           if [ $CODE -ne 0 ] || [ ! -f build/app.apk ]; then
             echo "::error::export exit code $CODE; log lines $(wc -l < export.log)"
-            sed 's/\x1b\[[0-9;]*m//g' export.log | tr -d '\r' | tail -n 60 | while IFS= read -r l; do echo "::error::export: ${l:0:400}"; done
+            sed 's/\x1b\[[0-9;]*m//g' export.log | tr -d '\r' | grep -v "first_scan" | tail -n 60 | while IFS= read -r l; do echo "::error::export: ${l:0:400}"; done
             exit 1
           fi
           BT="$ANDROID_HOME/build-tools/35.0.0"
