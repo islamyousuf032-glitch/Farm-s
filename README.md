@@ -15,6 +15,6 @@
 ```bash
 # Godot 4.7 editor-এ godot/project.godot খুলুন (আগে native/ বিল্ড করতে হবে)
 cd native && git clone --depth 1 https://github.com/godotengine/godot-cpp.git
-scons platform=linux target=template_release arch=x86_64
+scons platform=linux target=template_release arch=x86_64 api_version=4.7
 godot --headless --path godot --script res://tests/smoke_test.gd
 ```

@@ -98,7 +98,7 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           set +e
-          scons platform=linux target=template_release arch=x86_64 -j"$(nproc)" > ../native-linux.log 2>&1
+          scons platform=linux target=template_release arch=x86_64 api_version=4.7 -j"$(nproc)" > ../native-linux.log 2>&1
           CODE=$?
           set -e
           if [ $CODE -ne 0 ] || [ ! -f ../godot/addons/chalabon_core/bin/libchalabon_core.linux.template_release.x86_64.so ]; then
@@ -111,7 +111,7 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           set +e
-          scons platform=android target=template_release arch=arm64 -j"$(nproc)" > ../native-android.log 2>&1
+          scons platform=android target=template_release arch=arm64 api_version=4.7 -j"$(nproc)" > ../native-android.log 2>&1
           CODE=$?
           set -e
           if [ $CODE -ne 0 ]; then tail -60 ../native-android.log | while IFS= read -r l; do echo "::error::${l:0:400}"; done; exit 1; fi
