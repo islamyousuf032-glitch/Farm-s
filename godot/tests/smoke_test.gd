@@ -47,6 +47,7 @@ func _run() -> void:
 	check(grid.plant(1, 1, 2, 2, 0), "FarmGrid plant")
 	check(grid.water(1, 1), "FarmGrid water")
 	grid.end_of_day()
+	grid.water(1, 1)
 	grid.end_of_day()
 	check(grid.get_stage(1, 1) == 4, "FarmGrid grows to ready stage")
 	check(grid.harvest(1, 1) == 2, "FarmGrid harvest returns crop")

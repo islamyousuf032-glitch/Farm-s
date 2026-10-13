@@ -128,7 +128,7 @@ jobs:
             # Diagnostic: get a native backtrace of the crash under gdb.
             sudo apt-get install -y -qq gdb > /dev/null 2>&1
             timeout 240 gdb -batch -ex run -ex "bt 40" --args godot --headless --verbose --path godot --import > gdb.log 2>&1
-            sed 's/\x1b\[[0-9;]*m//g' gdb.log | tr -d '\r' | grep -E "^#|SIG|signal|rror" | head -60 | while IFS= read -r l; do echo "::error::gdbimp: ${l:0:300}"; done
+            sed 's/\x1b\[[0-9;]*m//g' gdb.log | tr -d '\r' | tail -n 60 | while IFS= read -r l; do echo "::error::gdbimp: ${l:0:300}"; done
           fi
           echo "::notice::import exit code $IC"
           set -e
@@ -139,7 +139,7 @@ jobs:
           if [ $CODE -ne 0 ]; then
             sudo apt-get install -y -qq gdb > /dev/null 2>&1
             timeout 300 gdb -batch -ex run -ex "bt 30" --args godot --headless --path godot --script res://tests/smoke_test.gd > gdb2.log 2>&1
-            sed 's/\x1b\[[0-9;]*m//g' gdb2.log | tr -d '\r' | grep -E "^#|SIG|signal|rror|No such" | head -40 | while IFS= read -r l; do echo "::error::gdb: ${l:0:300}"; done
+            sed 's/\x1b\[[0-9;]*m//g' gdb2.log | tr -d '\r' | tail -n 40 | while IFS= read -r l; do echo "::error::gdb: ${l:0:300}"; done
           fi
           set -e
           sed 's/\x1b\[[0-9;]*m//g' smoke.log | tr -d '\r' | tail -n 80 | while IFS= read -r l; do echo "::notice::smoke: ${l:0:300}"; done
