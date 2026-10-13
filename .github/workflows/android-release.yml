@@ -125,12 +125,10 @@ jobs:
           echo "import exit $IC"
           sed 's/\x1b\[[0-9;]*m//g' import.log | tr -d '\r' | tail -n 25 | while IFS= read -r l; do echo "::error::import: ${l:0:300}"; done
           if [ $IC -ne 0 ]; then
-            # Diagnostic: does the import pass without the C++ extension?
-            mv godot/addons/chalabon_core/chalabon_core.gdextension /tmp/chalabon_core.gdextension.off
-            timeout 300 godot --headless --verbose --path godot --import > import_noext.log 2>&1
-            echo "import without extension exit $?"
-            sed 's/\x1b\[[0-9;]*m//g' import_noext.log | tr -d '\r' | tail -n 8 | while IFS= read -r l; do echo "::notice::noext: ${l:0:300}"; done
-            mv /tmp/chalabon_core.gdextension.off godot/addons/chalabon_core/chalabon_core.gdextension
+            # Diagnostic: get a native backtrace of the crash under gdb.
+            sudo apt-get install -y -qq gdb > /dev/null 2>&1 || true
+            timeout 240 gdb -batch -ex run -ex "bt 40" -ex "info sharedlibrary" --args godot --headless --verbose --path godot --import > gdb.log 2>&1 || true
+            sed 's/\x1b\[[0-9;]*m//g' gdb.log | tr -d '\r' | grep -E "^#|signal|SIG|chalabon|Thread|exited|libchalabon" | head -80 | while IFS= read -r l; do echo "::error::gdb: ${l:0:300}"; done
           fi
           set -e
           head -c 4000 import.log | while IFS= read -r l; do echo "::notice::import: ${l:0:300}"; done
