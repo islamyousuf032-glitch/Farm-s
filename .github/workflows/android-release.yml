@@ -1,6 +1,6 @@
-name: Android APK release (Godot 4 + C++)
+name: Android APK release (Godot 4)
 
-# Builds the Godot 4 game with the C++ GDExtension (native/), exports a signed arm64 APK
+# Builds the Godot 4 game (GDScript core), exports a signed arm64 APK
 # and publishes it as a GitHub Release. Each run gets versionCode = 1000 + run_number and
 # keeps the same package id and signing key, so phones install it as an update.
 on:
@@ -8,7 +8,6 @@ on:
     branches: [arena/279b11b0-farm-s]
     paths:
       - "godot/**"
-      - "native/**"
       - "tools/**"
       - "signing/**"
       - "CHANGELOG.md"
@@ -87,82 +86,24 @@ jobs:
           done
           cat "$HOME/.config/godot/editor_settings-4.tres"
 
-      - name: Install SCons
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq scons && scons --version | head -2
-
-      - name: Fetch godot-cpp (master ships extension_api-4-7.json)
-        run: git clone --depth 1 https://github.com/godotengine/godot-cpp.git native/godot-cpp
-
-      - name: Build C++ core for Linux (used by headless tests)
-        working-directory: native
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          set +e
-          scons platform=linux target=template_release arch=x86_64 api_version=4.7 -j"$(nproc)" > ../native-linux.log 2>&1
-          CODE=$?
-          set -e
-          if [ $CODE -ne 0 ] || [ ! -f ../godot/addons/chalabon_core/bin/libchalabon_core.linux.template_release.x86_64.so ]; then
-            tail -60 ../native-linux.log | while IFS= read -r l; do echo "::error::${l:0:400}"; done
-            exit 1
-          fi
-
-      - name: Build C++ core for Android arm64
-        working-directory: native
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          set +e
-          scons platform=android target=template_release arch=arm64 api_version=4.7 -j"$(nproc)" > ../native-android.log 2>&1
-          CODE=$?
-          set -e
-          if [ $CODE -ne 0 ]; then tail -60 ../native-android.log | while IFS= read -r l; do echo "::error::${l:0:400}"; done; exit 1; fi
-          ls -la ../godot/addons/chalabon_core/bin/ || true
-
       - name: Import project and run headless smoke test
         run: |
           set +e
-          timeout 240 stdbuf -oL -eL godot --headless --verbose --path godot --import > import.log 2>&1
-          IC=$?
-          echo "import exit $IC"
-          sed 's/\x1b\[[0-9;]*m//g' import.log | tr -d '\r' | grep -A45 "Dumping the backtrace" | head -n 50 | while IFS= read -r l; do echo "::error::bt: ${l:0:300}"; done
-          sed 's/\x1b\[[0-9;]*m//g' import.log | tr -d '\r' | tail -n 6 | while IFS= read -r l; do echo "::error::import: ${l:0:300}"; done
-          if [ $IC -ne 0 ]; then
-            # Diagnostic: get a native backtrace of the crash under gdb.
-            sudo apt-get install -y -qq gdb > /dev/null 2>&1
-            timeout 150 gdb -batch -ex run -ex "bt 40" --args godot --headless --verbose --path godot --import > gdb.log 2>&1
-            sed 's/\x1b\[[0-9;]*m//g' gdb.log | tr -d '\r' | tail -n 60 | while IFS= read -r l; do echo "::error::gdbimp: ${l:0:300}"; done
-          fi
-          echo "::notice::import exit code $IC"
+          timeout 300 godot --headless --path godot --import > import.log 2>&1
+          echo "import exit $?"
+          tail -n 5 import.log
           set -e
-          ls -la godot/.godot/ | head -20 || true
+          ls -la godot/.godot/ | head -5 || true
           set +e
-          timeout 240 stdbuf -oL -eL godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
+          timeout 240 godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
           CODE=$?
-          if [ $CODE -ne 0 ]; then
-            echo "::error::gdb available: $(command -v gdb || echo none)"
-            sudo apt-get install -y -qq gdb > /dev/null 2>&1
-            timeout 120 gdb -batch -ex run -ex "bt 30" --args godot --headless --path godot --script res://tests/smoke_test.gd > gdb2.log 2>&1
-            sed 's/\x1b\[[0-9;]*m//g' gdb2.log | tr -d '\r' | tail -n 40 | while IFS= read -r l; do echo "::error::gdb: ${l:0:300}"; done
-          fi
           set -e
-          sed 's/\x1b\[[0-9;]*m//g' smoke.log | tr -d '\r' | tail -n 80 | while IFS= read -r l; do echo "::notice::smoke: ${l:0:300}"; done
+          tail -n 80 smoke.log
           if ! grep -q "SMOKE_OK" smoke.log || [ $CODE -ne 0 ]; then
             echo "::error::smoke test exit code $CODE"
-            sed 's/\x1b\[[0-9;]*m//g' smoke.log | tr -d '\r' | grep -E "ERROR|SCRIPT|FAIL|ok   -|SMOKE|rror" | tail -n 60 | while IFS= read -r l; do echo "::error::smoke: ${l:0:300}"; done
+            grep -E "ERROR|SCRIPT|FAIL|SMOKE|rror" smoke.log | tail -n 40 | while IFS= read -r l; do echo "::error::smoke: ${l:0:300}"; done
             exit 1
           fi
-
-      - name: Upload diagnostic logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: diag-logs
-          path: |
-            import.log
-            smoke.log
-            gdb.log
-            gdb2.log
-          if-no-files-found: ignore
-          retention-days: 3
 
       - name: Export signed release APK
         run: |

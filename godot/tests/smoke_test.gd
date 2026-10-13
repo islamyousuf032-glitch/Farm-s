@@ -36,8 +36,8 @@ func _run() -> void:
 		return
 
 	# Native core (C++ GDExtension)
-	var grid = ClassDB.instantiate("FarmGrid")
-	check(grid != null, "native class FarmGrid is registered")
+	var grid = load("res://scripts/farm_grid.gd").new()
+	check(grid != null, "FarmGrid script loads")
 	if grid == null:
 		print("SMOKE_FAILED")
 		quit(1)
@@ -51,17 +51,10 @@ func _run() -> void:
 	grid.end_of_day()
 	check(grid.get_stage(1, 1) == 4, "FarmGrid grows to ready stage")
 	check(grid.harvest(1, 1) == 2, "FarmGrid harvest returns crop")
-	print("DBG a")
-	var gc: int = grid.get_crop(1, 1)
-	print("DBG b " + str(gc))
-	check(gc == 0, "FarmGrid clears single-harvest crop")
-	print("DBG c")
+	check(grid.get_crop(1, 1) == 0, "FarmGrid clears single-harvest crop")
 	var st: Dictionary = grid.export_state()
-	print("DBG d " + str(st.keys()))
-	var g2 = ClassDB.instantiate("FarmGrid")
-	print("DBG e")
+	var g2 = load("res://scripts/farm_grid.gd").new()
 	g2.import_state(st)
-	print("DBG f")
 	check(g2.get_width() == 4 and g2.get_height() == 4, "FarmGrid export/import")
 
 	# Main scene and a new game
