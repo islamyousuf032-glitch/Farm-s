@@ -1,13 +1,16 @@
-name: Android APK release
+name: Android APK release (Godot 4 + C++)
 
-# Builds a signed release APK from game/ + android/ and publishes it as a GitHub Release.
-# Each run gets a new versionCode (= run number) so phones can install it over the previous APK.
+# Builds the Godot 4 game with the C++ GDExtension (native/), exports a signed arm64 APK
+# and publishes it as a GitHub Release. Each run gets versionCode = 1000 + run_number and
+# keeps the same package id and signing key, so phones install it as an update.
 on:
   push:
     branches: [arena/279b11b0-farm-s]
     paths:
-      - "game/**"
-      - "android/**"
+      - "godot/**"
+      - "native/**"
+      - "tools/**"
+      - "signing/**"
       - "CHANGELOG.md"
       - ".github/workflows/android-release.yml"
   workflow_dispatch:
@@ -19,77 +22,145 @@ concurrency:
   group: android-release
   cancel-in-progress: false
 
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_DIR: "4.7.2.stable"
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
       - name: Load signing config
-        # The release key is committed under android/signing/ so every build uses the same key
-        # (required for phones to accept APK updates). See docs/install-and-update-guide-bn.md.
         run: |
-          while IFS='=' read -r k v; do echo "$k=$v" >> "$GITHUB_ENV"; done < android/signing/signing.env
-          echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/android/signing/release.p12" >> "$GITHUB_ENV"
+          set -a
+          . signing/signing.env
+          set +a
+          {
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$GITHUB_WORKSPACE/signing/release.p12"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$KEY_ALIAS"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
 
-      - name: Run game rule tests
-        run: node game/tests/test.js
+      - name: Compute version
+        run: |
+          VC=$((1000 + ${{ github.run_number }}))
+          VN="2.0.${{ github.run_number }}"
+          echo "VERSION_CODE=$VC" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VN" >> "$GITHUB_ENV"
+          echo "APK_NAME=chalabon-farm-v${VN}.apk" >> "$GITHUB_ENV"
+          sed -i "s/^version\/code=.*/version\/code=$VC/" godot/export_presets.cfg
+          sed -i "s/^version\/name=.*/version\/name=\"$VN\"/" godot/export_presets.cfg
+          grep -E "^version/" godot/export_presets.cfg
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
-
       - name: Install Android SDK components
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKM" ]; then SDKM=$(find "$ANDROID_HOME" -name sdkmanager -type f | head -1); fi
-          echo "using $SDKM"
           yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" --install "platforms;android-34" "build-tools;34.0.0" > sdk.log 2>&1 || { tail -40 sdk.log; exit 1; }
-          tail -3 sdk.log
+          "$SDKM" --install "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" > sdk.log 2>&1 || { tail -40 sdk.log; exit 1; }
+          tail -2 sdk.log
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
-      - name: Compute version
+      - name: Install Godot ${{ env.GODOT_VERSION }} editor and Android export templates
         run: |
-          VC="${{ github.run_number }}"
-          VN="1.0.${VC}"
-          echo "VERSION_CODE=$VC" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=$VN" >> "$GITHUB_ENV"
-          echo "APK_NAME=chalabon-farm-v${VN}.apk" >> "$GITHUB_ENV"
-          printf 'window.CHALABON_VERSION = "%s";\n' "$VN" > game/js/version.js
+          set -e
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo install -m 755 Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+          curl -fsSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p tpz && unzip -q templates.tpz -d tpz && rm -f templates.tpz
+          DEST="$HOME/.local/share/godot/export_templates/$GODOT_DIR"
+          mkdir -p "$DEST"
+          find tpz -type f \( -name 'android_*' -o -name 'version.txt' \) -exec cp {} "$DEST/" \;
+          ls "$DEST" | head -30
+          cat "$DEST/version.txt"; echo
+          mkdir -p "$HOME/.config/godot"
+          for f in editor_settings-4.tres; do
+            printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' \
+              "export/android/android_sdk_path = \"$ANDROID_HOME\"" \
+              "export/android/java_sdk_path = \"$JAVA_HOME\"" > "$HOME/.config/godot/$f"
+          done
+          cat "$HOME/.config/godot/editor_settings-4.tres"
 
-      - name: Build signed APK
+      - name: Install SCons
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq scons && scons --version | head -2
+
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r26d
+          add-to-path: false
+
+      - name: Fetch godot-cpp (4.5 bindings, compatible with 4.7)
+        run: git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git native/godot-cpp
+
+      - name: Build C++ core for Linux (used by headless tests)
+        working-directory: native
         run: |
-          cd android
-          if ! gradle :app:assembleRelease --no-daemon --stacktrace > "$GITHUB_WORKSPACE/gradle.log" 2>&1; then
-            # surface the important lines as annotations (readable via the GitHub API)
-            grep -v "^\s*at \|^\s*$" "$GITHUB_WORKSPACE/gradle.log" | grep -A12 -E "What went wrong|Build file|Caused by|FAILURE" | head -60 | while IFS= read -r line; do echo "::error::${line:0:600}"; done
+          export PATH="$HOME/.local/bin:$PATH"
+          scons platform=linux target=template_release arch=x86_64 -j"$(nproc)" > ../native-linux.log 2>&1 || { grep -E "error|Error" ../native-linux.log | head -40 | while IFS= read -r l; do echo "::error::${l:0:500}"; done; tail -30 ../native-linux.log; exit 1; }
+
+      - name: Build C++ core for Android arm64
+        working-directory: native
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          scons platform=android target=template_release arch=arm64 -j"$(nproc)" > ../native-android.log 2>&1 || { grep -E "error|Error" ../native-android.log | head -40 | while IFS= read -r l; do echo "::error::${l:0:500}"; done; tail -30 ../native-android.log; exit 1; }
+          ls -la ../godot/addons/chalabon_core/bin/
+
+      - name: Import project and run headless smoke test
+        run: |
+          godot --headless --path godot --import > import.log 2>&1 || true
+          set +e
+          godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
+          CODE=$?
+          set -e
+          cat smoke.log | tail -80
+          if ! grep -q "SMOKE_OK" smoke.log || [ $CODE -ne 0 ]; then
+            grep -E "ERROR|SCRIPT|Parse|FAIL|Invalid|Cannot|error" smoke.log import.log | head -40 | while IFS= read -r l; do echo "::error::${l:0:500}"; done
             exit 1
           fi
 
-      - name: Name, verify and prepare APK
+      - name: Export signed release APK
         run: |
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          cp "$APK" "$APK_NAME"
-          cp "$APK" chalabon-farm-latest.apk
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/34.0.0 | head -1)
-          "$BT/apksigner" verify --print-certs "$APK_NAME" | head -5
-          "$BT/aapt" dump badging "$APK_NAME" | head -3
-          # release notes = first section of CHANGELOG.md
+          mkdir -p build
+          set +e
+          godot --headless --path godot --export-release "Android" "$GITHUB_WORKSPACE/build/app.apk" > export.log 2>&1
+          CODE=$?
+          set -e
+          tail -40 export.log
+          if [ $CODE -ne 0 ] || [ ! -f build/app.apk ]; then
+            grep -E "ERROR|error|Error|keystore|sdk|template" export.log | head -40 | while IFS= read -r l; do echo "::error::${l:0:500}"; done
+            exit 1
+          fi
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --print-certs build/app.apk | head -4
+          "$BT/aapt" dump badging build/app.apk | head -3
+          unzip -l build/app.apk | grep -E "chalabon_core|\.so" | head -5
+          cp build/app.apk "$APK_NAME"
+          cp build/app.apk chalabon-farm-latest.apk
+
+      - name: Write release notes
+        run: |
           awk 'BEGIN{n=0} /^## /{n++; if(n>1) exit} n>=1{print}' CHANGELOG.md > release-notes.md
           {
             echo ""
             echo "### ডাউনলোড ও আপডেট"
             echo "- **এই APK:** \`$APK_NAME\`"
             echo "- **সবসময়ের সর্বশেষ লিংক:** \`chalabon-farm-latest.apk\`"
-            echo "- আগের APK না মুছে এই ফাইলটি ইনস্টল করলে আপডেট হবে, সেভ থাকবে।"
+            echo "- আগের APK না মুছে এই ফাইলটি ইনস্টল করলে আপডেট হবে। প্যাকেজ আইডি একই (com.chalabon.farm)।"
             echo "- ভার্সন: ${VERSION_NAME} (versionCode ${VERSION_CODE})"
+            echo "- নোট: Godot সংস্করণে সেভ ফাইল আলাদা, পুরোনো WebView সংস্করণের সেভ আসবে না।"
           } >> release-notes.md
 
       - name: Publish GitHub Release

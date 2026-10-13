@@ -1,16 +1,17 @@
-# Android build outputs and the copied web assets (copied from game/ at build time)
-android/build/
-android/app/build/
-android/.gradle/
-android/.idea/
-android/local.properties
-android/app/src/main/assets/www/
+# Godot project caches and build outputs
+godot/.godot/
+godot/addons/chalabon_core/bin/
+native/godot-cpp/
+native/bin/
+build/
 *.apk
 *.aab
 *.jks
 *.keystore
 *.p12
-!android/signing/release.p12
+!signing/release.p12
+# Python
+__pycache__/
 # Node / tooling
 node_modules/
 .DS_Store

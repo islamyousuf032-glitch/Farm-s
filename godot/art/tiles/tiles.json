@@ -1,0 +1,23 @@
+{
+ "names": [
+  "grass_a",
+  "grass_b",
+  "grass_c",
+  "grass_flower",
+  "soil_dry",
+  "soil_tilled",
+  "path",
+  "water_a",
+  "water_b",
+  "bank",
+  "bush",
+  "floor_wood",
+  "wall_wood",
+  "rug",
+  "sand",
+  "wet_soil",
+  "grass_dark",
+  "stone_path"
+ ],
+ "cols": 6
+}
