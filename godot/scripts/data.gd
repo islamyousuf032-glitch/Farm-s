@@ -87,7 +87,7 @@ static func crop_index(key: String) -> int:
 	return CROP_ORDER.find(key) + 1
 
 
-static func is_tool(id: String) -> bool:
+static func is_tool_item(id: String) -> bool:
 	return TOOLS.has(id)
 
 

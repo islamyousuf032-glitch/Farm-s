@@ -172,7 +172,7 @@ func update_status() -> void:
 	energy_bar.value = float(Game.energy)
 	var held: String = Game.held_item()
 	var extra: String = ""
-	if held != "" and not GameData.is_tool(held):
+	if held != "" and not GameData.is_tool_item(held):
 		extra = "  x%d" % Game.count_item(held)
 	hand_label.text = "হাতে: %s%s   (হাত বদল: Q)" % [GameData.item_name(held), extra] if held != "" else ""
 
@@ -421,7 +421,7 @@ func open_journal() -> void:
 	lines.append("ব্যাগ:")
 	var any: bool = false
 	for id in Game.inventory.keys():
-		if Game.count_item(id) > 0 and not GameData.is_tool(id):
+		if Game.count_item(id) > 0 and not GameData.is_tool_item(id):
 			lines.append("  %s x%d" % [GameData.item_name(id), Game.count_item(id)])
 			any = true
 	if not any:

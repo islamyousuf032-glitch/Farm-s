@@ -130,7 +130,7 @@ func remove_item(id: String, n: int = 1) -> bool:
 	if count_item(id) < n:
 		return false
 	var left: int = count_item(id) - n
-	if left <= 0 and not GameData.is_tool(id):
+	if left <= 0 and not GameData.is_tool_item(id):
 		inventory.erase(id)
 	else:
 		inventory[id] = left
@@ -163,7 +163,7 @@ func held_list() -> Array:
 		out.append(t)
 	var extra: Array = []
 	for k in inventory.keys():
-		if not GameData.is_tool(k) and count_item(k) > 0:
+		if not GameData.is_tool_item(k) and count_item(k) > 0:
 			extra.append(k)
 	extra.sort()
 	out.append_array(extra)

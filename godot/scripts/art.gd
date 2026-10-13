@@ -52,7 +52,7 @@ static func tile_atlas(name: String) -> Vector2i:
 
 
 static func item_texture(id: String) -> Texture2D:
-	if GameData.is_tool(id):
+	if GameData.is_tool_item(id):
 		return texture("items/tool_%s" % id)
 	var parts: PackedStringArray = id.split("_", true, 1)
 	if parts.size() < 2:
