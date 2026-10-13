@@ -26,7 +26,7 @@ static func _grid(w: int, h: int, ch: String) -> Array:
 	return g
 
 
-static func _set(g: Array, x: int, y: int, ch: String) -> void:
+static func _put(g: Array, x: int, y: int, ch: String) -> void:
 	if y >= 0 and y < g.size() and x >= 0 and x < (g[y] as Array).size():
 		g[y][x] = ch
 
@@ -34,7 +34,7 @@ static func _set(g: Array, x: int, y: int, ch: String) -> void:
 static func _rect(g: Array, x1: int, y1: int, x2: int, y2: int, ch: String) -> void:
 	for y in range(y1, y2 + 1):
 		for x in range(x1, x2 + 1):
-			_set(g, x, y, ch)
+			_put(g, x, y, ch)
 
 
 static func _scatter(g: Array, r: RandomNumberGenerator, ch: String, count: int, allowed: String) -> void:
@@ -79,8 +79,8 @@ static func _farm() -> Dictionary:
 	_rect(g, 21, 1, 24, 2, "B")
 	_rect(g, 2, 11, 3, 12, "#")
 	_rect(g, 1, 13, 1, 14, "#")
-	_set(g, 5, 13, "R")
-	_set(g, 14, 14, "R")
+	_put(g, 5, 13, "R")
+	_put(g, 14, 14, "R")
 	_scatter(g, r, "f", 26, ".")
 	_scatter(g, r, "#", 2, ".")
 	return {
@@ -116,10 +116,10 @@ static func _village() -> Dictionary:
 	_rect(g, 7, 11, 11, 14, "T")
 	_rect(g, 8, 12, 10, 13, "W")
 	_rect(g, 1, 12, 2, 14, "B")
-	_set(g, 12, 13, "#")
-	_set(g, 13, 13, "#")
-	_set(g, 12, 14, "#")
-	_set(g, 26, 14, "#")
+	_put(g, 12, 13, "#")
+	_put(g, 13, 13, "#")
+	_put(g, 12, 14, "#")
+	_put(g, 26, 14, "#")
 	_rect(g, 20, 13, 21, 14, "R")
 	_scatter(g, r, "f", 30, ".")
 	_scatter(g, r, "#", 3, ".")
@@ -148,7 +148,7 @@ static func _village() -> Dictionary:
 static func _home() -> Dictionary:
 	var g: Array = _grid(10, 7, "X")
 	_rect(g, 1, 1, 8, 5, "h")
-	_set(g, 4, 6, "P")
+	_put(g, 4, 6, "P")
 	return {
 		"id": "home", "name": "আমাদের ঘর", "w": 10, "h": 7,
 		"rows": _rows(g),
