@@ -26,17 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check signing secrets
-        env:
-          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Load signing config
+        # The release key is committed under android/signing/ so every build uses the same key
+        # (required for phones to accept APK updates). See docs/install-and-update-guide-bn.md.
         run: |
-          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ] || [ -z "$KS_ALIAS" ] || [ -z "$KS_KEY_PASS" ]; then
-            echo "::error::Signing secrets are missing. Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
-            exit 1
-          fi
+          while IFS='=' read -r k v; do echo "$k=$v" >> "$GITHUB_ENV"; done < android/signing/signing.env
+          echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/android/signing/release.p12" >> "$GITHUB_ENV"
 
       - name: Run game rule tests
         run: node game/tests/test.js
@@ -55,12 +50,6 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Decode keystore
-        env:
-          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
-
       - name: Compute version
         run: |
           VC="${{ github.run_number }}"
@@ -71,11 +60,6 @@ jobs:
           printf 'window.CHALABON_VERSION = "%s";\n' "$VN" > game/js/version.js
 
       - name: Build signed APK
-        env:
-          KEYSTORE_PATH: ${{ runner.temp }}/release.p12
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
           gradle :app:assembleRelease --no-daemon --stacktrace

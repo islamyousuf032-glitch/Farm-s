@@ -10,6 +10,7 @@ android/app/src/main/assets/www/
 *.jks
 *.keystore
 *.p12
+!android/signing/release.p12
 # Node / tooling
 node_modules/
 .DS_Store
