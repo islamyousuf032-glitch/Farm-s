@@ -123,7 +123,8 @@ jobs:
           timeout 240 stdbuf -oL -eL godot --headless --verbose --path godot --import > import.log 2>&1
           IC=$?
           echo "import exit $IC"
-          sed 's/\x1b\[[0-9;]*m//g' import.log | tr -d '\r' | tail -n 25 | while IFS= read -r l; do echo "::error::import: ${l:0:300}"; done
+          sed 's/\x1b\[[0-9;]*m//g' import.log | tr -d '\r' | grep -A45 "Dumping the backtrace" | head -n 50 | while IFS= read -r l; do echo "::error::bt: ${l:0:300}"; done
+          sed 's/\x1b\[[0-9;]*m//g' import.log | tr -d '\r' | tail -n 6 | while IFS= read -r l; do echo "::error::import: ${l:0:300}"; done
           if [ $IC -ne 0 ]; then
             # Diagnostic: get a native backtrace of the crash under gdb.
             sudo apt-get install -y -qq gdb > /dev/null 2>&1
