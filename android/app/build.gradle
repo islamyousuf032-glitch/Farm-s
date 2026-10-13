@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The web game lives in ../../game. Copy it into the APK assets before every build.
+tasks.register('copyGameAssets', Copy) {
+    from '../../game'
+    into 'src/main/assets/www'
+}
+tasks.named('preBuild').configure { dependsOn 'copyGameAssets' }
+
+android {
+    namespace 'com.chalabon.farm'
+    compileSdk 34
+
+    defaultConfig {
+        // IMPORTANT: applicationId and signing key must never change, otherwise phones treat the APK as a different app
+        // and refuse to update it (the old one would have to be deleted, losing saved games).
+        applicationId 'com.chalabon.farm'
+        minSdk 24
+        targetSdk 34
+        versionCode (System.getenv('VERSION_CODE') ?: '1').toInteger()
+        versionName (System.getenv('VERSION_NAME') ?: '1.0.0')
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(System.getenv('KEYSTORE_PATH') ?: '/dev/null')
+            storePassword System.getenv('KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('KEY_ALIAS') ?: ''
+            keyPassword System.getenv('KEY_PASSWORD') ?: ''
+            storeType 'pkcs12'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

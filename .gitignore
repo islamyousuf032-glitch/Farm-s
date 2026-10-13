@@ -1,0 +1,15 @@
+# Android build outputs and the copied web assets (copied from game/ at build time)
+android/build/
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/src/main/assets/www/
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+# Node / tooling
+node_modules/
+.DS_Store
