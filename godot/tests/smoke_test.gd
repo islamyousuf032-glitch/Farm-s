@@ -103,7 +103,8 @@ func _run() -> void:
 	check(G.total_days == day_before + 1, "end of day advances day")
 	check(msg.length() > 0, "end of day message")
 
-	# UI paths
+	# UI paths (the talk above may have left a dialog open; close it first)
+	main.hud.dialog_panel.visible = false
 	main.hud.open_shop("shop")
 	main.hud.on_action("cancel")
 	main.hud.open_journal()
