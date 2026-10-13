@@ -151,6 +151,19 @@ jobs:
             exit 1
           fi
 
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-logs
+          path: |
+            import.log
+            smoke.log
+            gdb.log
+            gdb2.log
+          if-no-files-found: ignore
+          retention-days: 3
+
       - name: Export signed release APK
         run: |
           mkdir -p build
