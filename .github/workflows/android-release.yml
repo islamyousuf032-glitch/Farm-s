@@ -114,6 +114,7 @@ jobs:
           set -e
           tail -40 export.log
           if [ $CODE -ne 0 ] || [ ! -f build/app.apk ]; then
+            echo "::error::export exit code $CODE; log lines $(wc -l < export.log)"
             sed 's/\x1b\[[0-9;]*m//g' export.log | tr -d '\r' | tail -n 60 | while IFS= read -r l; do echo "::error::export: ${l:0:400}"; done
             exit 1
           fi
