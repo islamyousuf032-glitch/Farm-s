@@ -119,7 +119,11 @@ jobs:
 
       - name: Import project and run headless smoke test
         run: |
-          timeout 300 godot --headless --path godot --import > import.log 2>&1; echo "import exit $?"
+          set +e
+          timeout 300 godot --headless --path godot --import > import.log 2>&1
+          echo "import exit $?"
+          set -e
+          sed 's/\x1b\[[0-9;]*m//g' import.log | grep -v "first_scan\|Scanning\|Started Project" | tail -c 3500 | tr -d '\r' | while IFS= read -r l; do echo "::error::import: ${l:0:300}"; done
           head -c 4000 import.log | while IFS= read -r l; do echo "::notice::import: ${l:0:300}"; done
           ls -la godot/.godot/ | head -20 || true
           set +e
