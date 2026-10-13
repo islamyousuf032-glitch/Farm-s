@@ -138,6 +138,7 @@ jobs:
           timeout 240 stdbuf -oL -eL godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
           CODE=$?
           if [ $CODE -ne 0 ]; then
+            echo "::error::gdb available: $(command -v gdb || echo none)"
             sudo apt-get install -y -qq gdb > /dev/null 2>&1
             timeout 120 gdb -batch -ex run -ex "bt 30" --args godot --headless --path godot --script res://tests/smoke_test.gd > gdb2.log 2>&1
             sed 's/\x1b\[[0-9;]*m//g' gdb2.log | tr -d '\r' | tail -n 40 | while IFS= read -r l; do echo "::error::gdb: ${l:0:300}"; done
