@@ -130,16 +130,17 @@ jobs:
             timeout 240 gdb -batch -ex run -ex "bt 40" -ex "info sharedlibrary" --args godot --headless --verbose --path godot --import > gdb.log 2>&1 || true
             sed 's/\x1b\[[0-9;]*m//g' gdb.log | tr -d '\r' | grep -E "^#|signal|SIG|chalabon|Thread|exited|libchalabon" | head -80 | while IFS= read -r l; do echo "::error::gdb: ${l:0:300}"; done
           fi
+          echo "::notice::import exit code $IC"
           set -e
-          head -c 4000 import.log | while IFS= read -r l; do echo "::notice::import: ${l:0:300}"; done
           ls -la godot/.godot/ | head -20 || true
           set +e
           timeout 300 godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
           CODE=$?
           set -e
-          tail -c 6000 smoke.log
+          sed 's/\x1b\[[0-9;]*m//g' smoke.log | tr -d '\r' | tail -n 80 | while IFS= read -r l; do echo "::notice::smoke: ${l:0:300}"; done
           if ! grep -q "SMOKE_OK" smoke.log || [ $CODE -ne 0 ]; then
-            { echo "exit code $CODE"; grep -E "ERROR|SCRIPT|Parse|FAIL|Invalid|Cannot|rror|ok   -|SMOKE" smoke.log | tail -60; } | while IFS= read -r l; do echo "::error::${l:0:400}"; done | while IFS= read -r l; do echo "::error::${l:0:500}"; done
+            echo "::error::smoke test exit code $CODE"
+            sed 's/\x1b\[[0-9;]*m//g' smoke.log | tr -d '\r' | grep -E "ERROR|SCRIPT|FAIL|ok   -|SMOKE|rror" | tail -n 60 | while IFS= read -r l; do echo "::error::smoke: ${l:0:300}"; done
             exit 1
           fi
 
