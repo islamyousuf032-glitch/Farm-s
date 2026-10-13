@@ -18,10 +18,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: android-release
-  cancel-in-progress: false
-
 env:
   GODOT_VERSION: "4.7.2"
   GODOT_DIR: "4.7.2.stable"
