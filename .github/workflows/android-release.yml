@@ -123,16 +123,16 @@ jobs:
 
       - name: Import project and run headless smoke test
         run: |
-          godot --headless --path godot --import > import.log 2>&1 || true
+          timeout 300 godot --headless --path godot --import > import.log 2>&1; echo "import exit $?"
           head -c 4000 import.log | while IFS= read -r l; do echo "::notice::import: ${l:0:300}"; done
           ls -la godot/.godot/ | head -20 || true
           set +e
-          godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
+          timeout 300 godot --headless --path godot --script res://tests/smoke_test.gd > smoke.log 2>&1
           CODE=$?
           set -e
-          cat smoke.log | tail -80
+          tail -c 6000 smoke.log
           if ! grep -q "SMOKE_OK" smoke.log || [ $CODE -ne 0 ]; then
-            grep -E "ERROR|SCRIPT|Parse|FAIL|Invalid|Cannot|rror" smoke.log import.log | head -60 | while IFS= read -r l; do echo "::error::${l:0:500}"; done
+            { echo "exit code $CODE"; grep -E "ERROR|SCRIPT|Parse|FAIL|Invalid|Cannot|rror|ok   -|SMOKE" smoke.log | tail -60; } | while IFS= read -r l; do echo "::error::${l:0:400}"; done | while IFS= read -r l; do echo "::error::${l:0:500}"; done
             exit 1
           fi
 
