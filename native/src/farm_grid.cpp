@@ -23,7 +23,6 @@ void FarmGrid::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("end_of_day"), &FarmGrid::end_of_day);
 	ClassDB::bind_method(D_METHOD("export_state"), &FarmGrid::export_state);
 	ClassDB::bind_method(D_METHOD("import_state", "state"), &FarmGrid::import_state);
-	ClassDB::bind_static_method("FarmGrid", D_METHOD("hash_cell", "seed", "x", "y"), &FarmGrid::hash_cell);
 }
 
 void FarmGrid::setup(int w, int h) {
