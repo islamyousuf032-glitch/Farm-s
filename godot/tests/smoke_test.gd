@@ -114,6 +114,28 @@ func _run() -> void:
 	var c: Color = main.daylight(900.0)
 	check(c.r > 0.0 and c.r <= 1.5, "daylight colour")
 
+	# Bengali font coverage: every character used in NPC / crop text must exist in the font
+	var fnt: Font = load("res://fonts/HindSiliguri-Regular.ttf")
+	var missing: String = ""
+	var texts: Array = []
+	for k in GD.NPCS.keys():
+		texts.append_array(GD.NPCS[k]["lines"])
+		texts.append(str(GD.NPCS[k]["name"]))
+	for k in GD.CROPS.keys():
+		texts.append(str(GD.CROPS[k]["name"]))
+	for t in texts:
+		for i in range(str(t).length()):
+			var code: int = str(t).unicode_at(i)
+			if code > 32 and not fnt.has_char(code) and missing.find(char(code)) < 0:
+				missing += char(code)
+	print("FONT missing chars: [" + missing + "]")
+	check(missing == "", "Bengali font covers all NPC and crop text")
+	main.hud.open_dialog("T", "", ["কথা বলার পরীক্ষা।"], Callable())
+	await _frames(2)
+	print("DLG text size=%s visible=%s" % [str(main.hud.dlg_text.size), str(main.hud.dialog_panel.visible)])
+	check(main.hud.dlg_text.get_theme_font("font") != null, "dialog label has a font")
+	main.hud.dialog_panel.visible = false
+
 	print("RESULT failures=%d" % failures)
 	if failures == 0:
 		print("SMOKE_OK")
