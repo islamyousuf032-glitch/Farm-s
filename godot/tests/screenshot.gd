@@ -39,4 +39,17 @@ func _run() -> void:
 	main.hud.dialog_panel.visible = false
 	main.hud.open_shop("shop")
 	await _shot("03_shop")
+	main.hud._close_shop()
+	# Villagers walk on their own: capture after a few seconds of AI time
+	main.world.player.position = main.world.npcs[0].position + Vector2(0, 20)
+	Game.paused = false
+	await _frames(240)
+	await _shot("04_village_walking")
+	# Two villagers chat: bubbles alternate above their heads
+	var a = main.world.npcs[0]
+	var b = main.world.npcs[1]
+	a.begin_chat(b, true)
+	b.begin_chat(a, false)
+	await _frames(20)
+	await _shot("05_village_chat")
 	quit(0)

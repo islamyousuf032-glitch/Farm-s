@@ -161,10 +161,20 @@ func _build_game_hud() -> void:
 	notice_label.visible = false
 
 
+var _game_hud_on: bool = false
+
+
 func show_game_hud(v: bool) -> void:
+	_game_hud_on = v
 	info_label.get_parent().visible = v
 	hand_label.visible = v
-	touch_root.visible = v
+	_sync_touch()
+
+
+## Touch buttons only show during play, never on top of a dialogue, shop, journal or menu.
+func _sync_touch() -> void:
+	if touch_root != null:
+		touch_root.visible = _game_hud_on and not blocking()
 
 
 func show_notice(text: String) -> void:
@@ -186,6 +196,7 @@ func update_status() -> void:
 
 
 func _process(_delta: float) -> void:
+	_sync_touch()
 	if notice_t > 0.0:
 		notice_t -= _delta
 		if notice_t <= 0.0:
