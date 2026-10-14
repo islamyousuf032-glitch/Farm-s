@@ -105,6 +105,21 @@ jobs:
             exit 1
           fi
 
+      - name: Render UI screenshots (virtual display)
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -qq xvfb > /dev/null 2>&1 || true
+          GITHUB_WORKSPACE="$GITHUB_WORKSPACE" timeout 200 xvfb-run -a -s "-screen 0 1280x720x24" godot --path godot --rendering-driver opengl3 --script res://tests/screenshot.gd > shot.log 2>&1 || true
+          grep -E "SHOT|ERROR" shot.log | head -20 || true
+          ls -la ci-screens 2>/dev/null || true
+          if ls ci-screens/*.png > /dev/null 2>&1; then
+            git config user.name "Arena Agent"
+            git config user.email "agent@arena.ai"
+            git add ci-screens/*.png
+            git commit -qm "CI: UI screenshots" || true
+            git push -q origin HEAD:${GITHUB_REF_NAME} || echo "::error::screenshot push failed"
+          fi
+
       - name: Export signed release APK
         run: |
           mkdir -p build
