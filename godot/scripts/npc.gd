@@ -68,13 +68,15 @@ func _make_bubble() -> void:
 	sb.set_corner_radius_all(8)
 	sb.content_margin_left = 6
 	sb.content_margin_right = 6
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 5
 	bubble.add_theme_stylebox_override("panel", sb)
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble_label = Label.new()
 	bubble_label.add_theme_font_override("font", BUBBLE_FONT)
 	bubble_label.add_theme_font_size_override("font_size", 6)
+	# Bengali vowel signs sit above and below the line: give them room so they are not clipped.
+	bubble_label.add_theme_constant_override("line_spacing", 4)
 	bubble_label.add_theme_color_override("font_color", Color(0.18, 0.1, 0.04))
 	bubble_label.custom_minimum_size = Vector2(52, 0)
 	bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -171,10 +171,22 @@ func show_game_hud(v: bool) -> void:
 	_sync_touch()
 
 
-## Touch buttons only show during play, never on top of a dialogue, shop, journal or menu.
+var _dpad_btns: Array = []
+var touch_act: Button = null
+var touch_cancel: Button = null
+
+## Touch controls: movement and tools only during play. Panels that are open get
+## a confirm ("কাজ") and cancel ("বাতিল") button so a phone player is never stuck.
 func _sync_touch() -> void:
-	if touch_root != null:
-		touch_root.visible = _game_hud_on and not blocking()
+	if touch_root == null:
+		return
+	touch_root.visible = _game_hud_on
+	var menu: bool = blocking()
+	var dlg: bool = dialog_panel != null and dialog_panel.visible
+	for b in _dpad_btns:
+		b.visible = not menu
+	touch_act.visible = (not menu) or dlg
+	touch_cancel.visible = menu
 
 
 func show_notice(text: String) -> void:
@@ -217,17 +229,20 @@ func _build_touch() -> void:
 		b.button_down.connect(_hold.bind(d[0], true))
 		b.button_up.connect(_hold.bind(d[0], false))
 		b.modulate = Color(1, 1, 1, 0.75)
-	var act: Button = _btn("কাজ", Rect2(1112, 540, 140, 140), Callable(), touch_root, 30)
-	act.pressed.connect(_press.bind("action"))
-	act.modulate = Color(1, 1, 1, 0.85)
+		_dpad_btns.append(b)
+	touch_act = _btn("কাজ", Rect2(1112, 540, 140, 140), Callable(), touch_root, 30)
+	touch_act.pressed.connect(_press.bind("action"))
+	touch_act.modulate = Color(1, 1, 1, 0.85)
 	var cyc: Button = _btn("হাত\nবদল", Rect2(996, 616, 100, 84), Callable(), touch_root, 18)
 	cyc.pressed.connect(_press.bind("cycle"))
 	cyc.modulate = Color(1, 1, 1, 0.85)
-	var can: Button = _btn("বাতিল", Rect2(996, 532, 100, 72), Callable(), touch_root, 18)
-	can.pressed.connect(_press.bind("cancel"))
-	can.modulate = Color(1, 1, 1, 0.85)
+	_dpad_btns.append(cyc)
+	touch_cancel = _btn("বাতিল", Rect2(996, 532, 100, 72), Callable(), touch_root, 18)
+	touch_cancel.pressed.connect(_press.bind("cancel"))
+	touch_cancel.modulate = Color(1, 1, 1, 0.85)
 	var jr: Button = _btn("খাতা", Rect2(1176, 12, 92, 48), Callable(), touch_root, 20)
 	jr.pressed.connect(_press.bind("journal"))
+	_dpad_btns.append(jr)
 
 
 func _hold(v: Vector2, down: bool) -> void:
@@ -235,7 +250,10 @@ func _hold(v: Vector2, down: bool) -> void:
 
 
 func _press(action_name: String) -> void:
-	if main != null:
+	# Open panels take the tap directly; world actions go through main.
+	if blocking():
+		on_action(action_name)
+	elif main != null:
 		main.do_action(action_name)
 
 
@@ -252,9 +270,16 @@ func _build_dialog() -> void:
 	dialog_panel.add_child(dlg_portrait)
 	dlg_name = _label("", Rect2(300, 492, 840, 40), 28, true, dialog_panel)
 	dlg_text = _label("", Rect2(300, 536, 840, 120), 24, false, dialog_panel)
-	dlg_hint = _label("কাজ (Z / Space) চাপো", Rect2(980, 660, 160, 30), 16, false, dialog_panel)
+	dlg_hint = _label("ট্যাপ করো বা কাজ (Z / Space)", Rect2(760, 660, 360, 30), 16, false, dialog_panel)
 	dlg_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	dialog_panel.visible = false
+	# Invisible full-panel button on top: tapping the dialogue box advances it on phones.
+	var tap := Button.new()
+	tap.flat = true
+	tap.focus_mode = Control.FOCUS_NONE
+	tap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tap.pressed.connect(_press.bind("action"))
+	dialog_panel.add_child(tap)
 
 
 func open_dialog(who: String, portrait_id: String, lines: Array, on_close: Callable) -> void:
