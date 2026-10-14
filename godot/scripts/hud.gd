@@ -87,10 +87,18 @@ func _panel(r: Rect2, bg: Color = Color(0.13, 0.09, 0.06, 0.94)) -> Panel:
 	return p
 
 
+## Rects are given in screen coordinates; children of a positioned Control
+## (panel) must use coordinates relative to that parent.
+func _local(parent: Node, pos: Vector2) -> Vector2:
+	if parent is Control:
+		return pos - (parent as Control).position
+	return pos
+
+
 func _label(text: String, r: Rect2, fsize: int = 22, bold: bool = false, parent: Node = null) -> Label:
 	var l: Label = Label.new()
 	l.text = text
-	l.position = r.position
+	l.position = _local(parent, r.position)
 	l.size = r.size
 	l.add_theme_font_size_override("font_size", fsize)
 	l.add_theme_color_override("font_color", INK)
@@ -110,7 +118,7 @@ func _label(text: String, r: Rect2, fsize: int = 22, bold: bool = false, parent:
 func _btn(text: String, r: Rect2, cb: Callable, parent: Node = null, fsize: int = 22) -> Button:
 	var b: Button = Button.new()
 	b.text = text
-	b.position = r.position
+	b.position = _local(parent, r.position)
 	b.size = r.size
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", fsize)
@@ -225,7 +233,7 @@ func _press(action_name: String) -> void:
 func _build_dialog() -> void:
 	dialog_panel = _panel(Rect2(120, 480, 1040, 220))
 	dlg_portrait = TextureRect.new()
-	dlg_portrait.position = Vector2(136, 492)
+	dlg_portrait.position = Vector2(16, 12)
 	dlg_portrait.size = Vector2(144, 180)
 	dlg_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	dlg_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -324,7 +332,7 @@ func _build_shop() -> void:
 	shop_panel = _panel(Rect2(300, 60, 680, 600))
 	shop_title = _label("", Rect2(324, 74, 630, 44), 30, true, shop_panel)
 	var sc: ScrollContainer = ScrollContainer.new()
-	sc.position = Vector2(324, 128)
+	sc.position = Vector2(24, 68)
 	sc.size = Vector2(630, 460)
 	shop_panel.add_child(sc)
 	shop_list = VBoxContainer.new()
