@@ -168,8 +168,8 @@ func _run() -> void:
 	check(vw.map_id == "village" or vw.map_id == "farm", "world map loaded for navigation test")
 	var p1: Array = vw.find_path(Vector2i(2, 7), Vector2i(20, 7))
 	var clear_path: bool = not p1.is_empty()
-	for c in p1:
-		if not vw.walkable(c):
+	for cc in p1:
+		if not vw.walkable(cc):
 			clear_path = false
 	check(clear_path, "villager path exists and never crosses blocked cells")
 	check(vw.find_path(Vector2i(2, 7), Vector2i(2, 7)).is_empty(), "no path needed when already there")
