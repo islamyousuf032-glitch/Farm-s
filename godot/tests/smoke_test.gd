@@ -1,5 +1,6 @@
 extends SceneTree
 ## Headless smoke test: godot --headless --path godot --script res://tests/smoke_test.gd
+## No static types for World/Npc here: typed refs would compile world.gd before autoloads exist.
 ## Everything that is only available after startup (autoload, native class, class_name types)
 ## is looked up at runtime, so this script parses no matter when the engine registers them.
 ## Prints SMOKE_OK on success; exits non-zero on failure.
@@ -164,7 +165,7 @@ func _run() -> void:
 	check(NB.mood_from_friendship(300) == 1.0 and NB.mood_from_friendship(0) == 0.0, "friendship mood maps to 0..1")
 
 	# Villager navigation: A* path on the village grid avoids blocked cells
-	var vw: World = main.world
+	var vw = main.world
 	check(vw.map_id == "village" or vw.map_id == "farm", "world map loaded for navigation test")
 	var p1: Array = vw.find_path(Vector2i(2, 7), Vector2i(20, 7))
 	var clear_path: bool = not p1.is_empty()
@@ -175,8 +176,8 @@ func _run() -> void:
 	check(vw.find_path(Vector2i(2, 7), Vector2i(2, 7)).is_empty(), "no path needed when already there")
 
 	# Villager chat: two villagers beside each other start talking
-	var va: Npc = vw.npcs[0]
-	var vb: Npc = vw.npcs[1]
+	var va = vw.npcs[0]
+	var vb = vw.npcs[1]
 	va.begin_chat(vb, true)
 	vb.begin_chat(va, false)
 	await _frames(3)
