@@ -141,7 +141,42 @@ def make_tile(name, rnd):
         for y in range(16):
             for x in range(16):
                 d.point((x, y), fill=noisy(base, rnd, 8))
+    _tile_detail(name, d, rnd)
     return im
+
+
+def _tile_detail(name, d, rnd):
+    """Second pass: small natural details so the village floor reads as land, not flat colour."""
+    if name.startswith("grass") or name == "bank":
+        for _ in range(5):  # grass tufts: three-pixel blades, light and dark
+            x, y = rnd.randrange(1, 15), rnd.randrange(2, 15)
+            lead = shade(PAL_GRASS, 1.3)
+            d.point((x, y - 1), fill=lead)
+            d.point((x - 1, y), fill=shade(PAL_GRASS, 0.7))
+            d.point((x, y), fill=shade(PAL_GRASS, 0.8))
+            d.point((x + 1, y), fill=shade(PAL_GRASS, 0.7))
+    elif name in ("soil_dry", "soil_tilled", "wet_soil"):
+        for _ in range(6):  # clods with a lit top edge
+            x, y = rnd.randrange(1, 14), rnd.randrange(1, 14)
+            d.point((x, y), fill=hx("#d88a5c") if name != "wet_soil" else hx("#8c5238"))
+            d.point((x + 1, y), fill=hx("#a0563a") if name != "wet_soil" else hx("#5a2e1f"))
+    elif name in ("path", "stone_path"):
+        for _ in range(4):  # pebble highlights
+            x, y = rnd.randrange(1, 14), rnd.randrange(1, 14)
+            d.point((x, y), fill=hx("#e6d2ab"))
+    elif name.startswith("water"):
+        for _ in range(4):  # sparkles
+            d.point((rnd.randrange(16), rnd.randrange(16)), fill=hx("#d8f1f8"))
+    elif name == "sand":
+        for y in (4, 11):  # wind ripples
+            for x in range(0, 16, 3):
+                d.point((x, y + (x // 3) % 2), fill=hx("#cdb579"))
+    elif name == "bush":
+        for _ in range(10):
+            d.point((rnd.randrange(16), rnd.randrange(16)), fill=hx("#6aa04a"))
+
+
+PAL_GRASS = hx("#6f9e45")
 
 
 # ---------------------------------------------------------------- props
