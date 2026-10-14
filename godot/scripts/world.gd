@@ -23,6 +23,9 @@ var rain_fx: CPUParticles2D = null
 var leaf_fx: CPUParticles2D = null
 var _water_phase: int = 0
 var _changing: bool = false
+var astar: AStarGrid2D = null         # navigation grid for villagers (solid = blocked)
+var shelter_rects: Array = []         # Rect2i footprints of buildings (indoors)
+var shelter_doors: Array = []         # Vector2i door cell per building
 
 
 static func cell_of(p: Vector2) -> Vector2i:
@@ -52,6 +55,8 @@ func load_map(id: String, pos: Vector2) -> void:
 	crop_sprites.clear()
 	water_cells.clear()
 	npcs.clear()
+	shelter_rects.clear()
+	shelter_doors.clear()
 	var w: int = int(map["w"])
 	var h: int = int(map["h"])
 	grid = null
@@ -80,9 +85,18 @@ func load_map(id: String, pos: Vector2) -> void:
 				if grid.get_crop(x, y) > 0:
 					_refresh_crop(Vector2i(x, y))
 
+	_build_nav(w, h)
+	for o in map["objects"]:
+		if str(o["type"]) in ["house", "shop", "school"]:
+			var ox: int = int(o["x"])
+			var oy: int = int(o["y"])
+			var ow: int = int(o["w"])
+			var oh: int = int(o["h"])
+			shelter_rects.append(Rect2i(ox, oy, ow, oh))
+			shelter_doors.append(Vector2i(ox + ow / 2, oy + oh))
 	for nid in map["npcs"]:
 		var n: Npc = Npc.new()
-		n.setup(str(nid))
+		n.setup(str(nid), self)
 		add_child(n)
 		npcs.append(n)
 
@@ -142,10 +156,117 @@ func load_map(id: String, pos: Vector2) -> void:
 	wt.autostart = true
 	wt.timeout.connect(_on_water_tick)
 	add_child(wt)
+	var ct: Timer = Timer.new()
+	ct.wait_time = 0.5
+	ct.autostart = true
+	ct.timeout.connect(_chat_tick)
+	add_child(ct)
 
 	if not Game.time_changed.is_connected(_on_time_changed):
 		Game.time_changed.connect(_on_time_changed)
 	_on_time_changed()
+
+
+# ---------------------------------------------------------------- villager navigation
+
+func _build_nav(w: int, h: int) -> void:
+	astar = AStarGrid2D.new()
+	astar.region = Rect2i(0, 0, w, h)
+	astar.cell_size = Vector2(16, 16)
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	astar.update()
+	for c in blocked.keys():
+		if _in_nav(c):
+			astar.set_point_solid(c, true)
+
+
+func _in_nav(c: Vector2i) -> bool:
+	return astar != null and c.x >= 0 and c.y >= 0 and c.x < astar.region.size.x and c.y < astar.region.size.y
+
+
+func walkable(c: Vector2i) -> bool:
+	return _in_nav(c) and not astar.is_point_solid(c)
+
+
+## Shortest path from a to b as cells, excluding the start cell. Empty if none.
+func find_path(a: Vector2i, b: Vector2i) -> Array:
+	if astar == null or not _in_nav(a) or not _in_nav(b):
+		return []
+	var goal: Vector2i = b if walkable(b) else nearest_walkable(b)
+	if goal == Vector2i(-1, -1) or goal == a:
+		return []
+	var ids: Array = astar.get_id_path(a, goal)
+	if not ids.is_empty() and ids[0] == a:
+		ids.remove_at(0)
+	return ids
+
+
+func nearest_walkable(c: Vector2i) -> Vector2i:
+	for r in range(1, 7):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				if maxi(absi(dx), absi(dy)) != r:
+					continue
+				var n: Vector2i = c + Vector2i(dx, dy)
+				if walkable(n):
+					return n
+	return Vector2i(-1, -1)
+
+
+func random_walkable_near(c: Vector2i, radius: int) -> Vector2i:
+	for i in range(20):
+		var n: Vector2i = c + Vector2i(randi_range(-radius, radius), randi_range(-radius, radius))
+		if walkable(n):
+			return n
+	return c
+
+
+func is_shelter_cell(c: Vector2i) -> bool:
+	for r in shelter_rects:
+		if (r as Rect2i).has_point(c):
+			return true
+	return false
+
+
+## Nearest building door, used as the shelter target when it rains.
+func shelter_for(c: Vector2i) -> Vector2i:
+	var best: Vector2i = c
+	var best_d: int = 1 << 30
+	for d in shelter_doors:
+		var dd: int = absi(d.x - c.x) + absi(d.y - c.y)
+		if dd < best_d:
+			best_d = dd
+			best = d
+	return best
+
+
+func nearest_free_npc(me: Npc, max_dist: int) -> Npc:
+	var best: Npc = null
+	var best_d: int = max_dist + 1
+	for o in npcs:
+		var n: Npc = o as Npc
+		if n == me or n.is_busy():
+			continue
+		var d: int = absi(n.cell().x - me.cell().x) + absi(n.cell().y - me.cell().y)
+		if d < best_d:
+			best_d = d
+			best = n
+	return best
+
+
+## Two idle villagers close together start a conversation.
+func _chat_tick() -> void:
+	for i in range(npcs.size()):
+		var a: Npc = npcs[i]
+		if a.is_busy():
+			continue
+		var b: Npc = nearest_free_npc(a, 2)
+		if b == null:
+			continue
+		if a.brain.social > 0.55 or b.brain.social > 0.55:
+			a.begin_chat(b, true)
+			b.begin_chat(a, false)
+			return
 
 
 func _on_time_changed() -> void:

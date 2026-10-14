@@ -123,6 +123,9 @@ func _run() -> void:
 		texts.append(str(GD.NPCS[k]["name"]))
 	for k in GD.CROPS.keys():
 		texts.append(str(GD.CROPS[k]["name"]))
+	texts.append_array(GD.GREET_LINES)
+	texts.append_array(GD.GREET_FRIEND_LINES)
+	texts.append_array(GD.CHATTER_LINES)
 	for t in texts:
 		for i in range(str(t).length()):
 			var code: int = str(t).unicode_at(i)
@@ -135,6 +138,52 @@ func _run() -> void:
 	print("DLG text size=%s visible=%s" % [str(main.hud.dlg_text.size), str(main.hud.dialog_panel.visible)])
 	check(main.hud.dlg_text.get_theme_font("font") != null, "dialog label has a font")
 	main.hud.dialog_panel.visible = false
+
+	# Villager AI: utility decisions (pure logic)
+	var NB = load("res://scripts/npc_brain.gd")
+	var b = NB.new("t")
+	var base: Dictionary = {"hour": 10.0, "day": 1, "rain": false, "outdoors": true, "routine": Vector2i(3, 3), "shelter": Vector2i(3, 3), "player_dist": 99, "social_partner_dist": -1, "friendship": 0}
+	var d1: Dictionary = b.decide(base.merged({"player_dist": 1}, true))
+	check(d1["action"] == "greet", "AI greets a player who is close")
+	b.register_greet(10.0, 1)
+	var d2: Dictionary = b.decide(base.merged({"player_dist": 1}, true))
+	check(d2["action"] != "greet", "AI does not repeat greeting inside cooldown")
+	var d3: Dictionary = b.decide(base.merged({"rain": true}, true))
+	check(d3["action"] == "shelter", "AI seeks shelter in rain")
+	var b2 = NB.new("u")
+	b2.social = 0.9
+	var d4: Dictionary = b2.decide(base.merged({"social_partner_dist": 2}, true))
+	check(d4["action"] == "socialize", "AI socialises when lonely and a villager is near")
+	var d5: Dictionary = b2.decide(base)
+	check(d5["action"] == "routine" or d5["action"] == "wander", "AI returns to routine without company")
+	var b3 = NB.new("h")
+	b3.action = "socialize"
+	b3.social = 0.6
+	var d6: Dictionary = b3.decide(base.merged({"social_partner_dist": 2}, true))
+	check(d6["action"] == "socialize", "AI hysteresis keeps current action when close in score")
+	check(NB.mood_from_friendship(300) == 1.0 and NB.mood_from_friendship(0) == 0.0, "friendship mood maps to 0..1")
+
+	# Villager navigation: A* path on the village grid avoids blocked cells
+	var vw: World = main.world
+	check(vw.map_id == "village" or vw.map_id == "farm", "world map loaded for navigation test")
+	var p1: Array = vw.find_path(Vector2i(2, 7), Vector2i(20, 7))
+	var clear_path: bool = not p1.is_empty()
+	for c in p1:
+		if not vw.walkable(c):
+			clear_path = false
+	check(clear_path, "villager path exists and never crosses blocked cells")
+	check(vw.find_path(Vector2i(2, 7), Vector2i(2, 7)).is_empty(), "no path needed when already there")
+
+	# Villager chat: two villagers beside each other start talking
+	var va: Npc = vw.npcs[0]
+	var vb: Npc = vw.npcs[1]
+	va.begin_chat(vb, true)
+	vb.begin_chat(va, false)
+	await _frames(3)
+	check(va.chat_partner == vb and vb.chat_partner == va, "villagers enter a chat")
+	check(va.bubble.visible or vb.bubble.visible, "a chat line is shown in a speech bubble")
+	va.end_chat()
+	vb.end_chat()
 
 	print("RESULT failures=%d" % failures)
 	if failures == 0:
