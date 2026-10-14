@@ -42,7 +42,7 @@ func _run() -> void:
 	main.hud._close_shop()
 	# Villagers walk on their own: capture after a few seconds of AI time
 	main.world.player.position = main.world.npcs[0].position + Vector2(0, 20)
-	Game.paused = false
+	root.get_node("/root/Game").paused = false
 	await _frames(240)
 	await _shot("04_village_walking")
 	# Two villagers chat: bubbles alternate above their heads
