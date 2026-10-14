@@ -74,9 +74,9 @@ func _make_bubble() -> void:
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble_label = Label.new()
 	bubble_label.add_theme_font_override("font", BUBBLE_FONT)
-	bubble_label.add_theme_font_size_override("font_size", 13)
+	bubble_label.add_theme_font_size_override("font_size", 6)
 	bubble_label.add_theme_color_override("font_color", Color(0.18, 0.1, 0.04))
-	bubble_label.custom_minimum_size = Vector2(120, 0)
+	bubble_label.custom_minimum_size = Vector2(52, 0)
 	bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.add_child(bubble_label)
