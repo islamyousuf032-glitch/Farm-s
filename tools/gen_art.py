@@ -332,7 +332,45 @@ def rug_sprite(rnd):
 
 
 # ---------------------------------------------------------------- characters (16x24 frames)
+# Anchor colours from docs/art/visual-upgrade/STYLE_GUIDE.md (exported to godot/art/palette.json).
+PALETTE = {
+    "paper": "#F3E9D2",
+    "sal_green": "#3E6B4A",
+    "deep_green": "#2C4E38",
+    "terracotta": "#B8603E",
+    "mustard": "#D9A441",
+    "deep_teal": "#1F5F66",
+    "outline": "#2a1a10",
+    "skin_light": "#C98B5E",
+    "skin_shadow": "#7A4A2E",
+}
+
+
+def outline(im, colour=None):
+    """Add a 1px dark outline around opaque body pixels (style guide rule)."""
+    colour = colour or hx(PALETTE["outline"])
+    w, h = im.size
+    src = im.copy()
+    px = src.load()
+    dst = im.load()
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] >= 128:
+                continue
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h and px[nx, ny][3] >= 200:
+                    dst[x, y] = colour
+                    break
+    return im
+
+
 def draw_char(spec, direction, frame, rnd):
+    """direction: 0 down, 1 left, 2 right, 3 up. frame: 0..3 (walk cycle)."""
+    return outline(_draw_char_body(spec, direction, frame, rnd))
+
+
+def _draw_char_body(spec, direction, frame, rnd):
     """direction: 0 down, 1 left, 2 right, 3 up. frame: 0..3 (walk cycle)."""
     im = Image.new("RGBA", (16, 24), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -532,6 +570,8 @@ def portrait(char_front, rnd):
 def main():
     rnd = random.Random(20261013)
     manifest = {"tiles": TILE_ORDER}
+    with open(out("palette.json"), "w", encoding="utf-8") as f:
+        json.dump(PALETTE, f, indent=1)
     # tiles atlas: 6 columns x 3 rows
     cols = 6
     atlas = Image.new("RGBA", (cols * 16, ((len(TILE_ORDER) + cols - 1) // cols) * 16), (0, 0, 0, 0))
