@@ -110,7 +110,7 @@ jobs:
         run: |
           sudo apt-get install -y -qq xvfb > /dev/null 2>&1 || true
           GITHUB_WORKSPACE="$GITHUB_WORKSPACE" timeout 200 xvfb-run -a -s "-screen 0 1280x720x24" godot --path godot --rendering-driver opengl3 --script res://tests/screenshot.gd > shot.log 2>&1 || true
-          grep -E "SHOT|ERROR" shot.log | head -20 || true
+          echo "::notice::SHOTLOG $(grep -E 'SHOT|ERROR|rror|Parse|Compile|Invalid' shot.log | head -12 | tr '\n' '|' | cut -c1-1500)"
           ls -la ci-screens 2>/dev/null || true
           if ls ci-screens/*.png > /dev/null 2>&1; then
             git config user.name "Arena Agent"
