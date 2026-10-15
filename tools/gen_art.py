@@ -142,6 +142,63 @@ def make_tile(name, rnd):
             for x in range(16):
                 d.point((x, y), fill=noisy(base, rnd, 8))
     _tile_detail(name, d, rnd)
+    return _pack_overlay(name, im, rnd)
+
+
+# ---------------------------------------------------------------- asset packs (godot/art/packs)
+# Source: "Grass,pond,road tiles pack" (32x32, provided by the owner). Downscaled to the
+# 16x16 tile grid with box filtering. Opaque images can replace a ground tile; transparent
+# images are decals composited on top of procedural ground.
+PACK_ROOT = os.path.join(ROOT, "packs")
+_pack_cache = {}
+
+
+def pack_tiles(fam):
+    if fam not in _pack_cache:
+        folder = os.path.join(PACK_ROOT, fam)
+        imgs = []
+        if os.path.isdir(folder):
+            for fn in sorted(os.listdir(folder)):
+                if fn.endswith(".png"):
+                    src = Image.open(os.path.join(folder, fn)).convert("RGBA")
+                    imgs.append(src.resize((16, 16), Image.BOX))
+        _pack_cache[fam] = imgs
+    return _pack_cache[fam]
+
+
+def _is_opaque(im):
+    return im.getchannel("A").getextrema()[0] == 255
+
+
+def _pack_overlay(name, im, rnd):
+    """Ground tiles use owner pack art; decals are composited on top of the procedural base."""
+    rules = {
+        # name: (opaque base family or None, decal families, decal count)
+        "grass_a": ("grass", ["grass", "grass_edge"], 3),
+        "grass_b": ("grass", ["grass", "variation"], 3),
+        "grass_c": ("grass", ["grass_edge", "variation"], 2),
+        "grass_flower": (None, ["grass", "variation"], 2),
+        "grass_dark": (None, ["grass", "grass_edge"], 3),
+        "soil_dry": (None, ["farmland"], 2),
+        "soil_tilled": (None, ["farmland"], 3),
+        "wet_soil": (None, ["farmland"], 2),
+        "path": (None, ["road"], 3),
+        "stone_path": (None, ["road"], 2),
+        "bank": (None, ["shoreline"], 3),
+        "water_a": ("pond", [], 0),
+        "water_b": ("pond", [], 0),
+    }
+    if name not in rules:
+        return im
+    base_fam, decal_fams, count = rules[name]
+    if base_fam:
+        opaque = [t for t in pack_tiles(base_fam) if _is_opaque(t)]
+        if opaque:
+            im = opaque[rnd.randrange(len(opaque))].copy()
+    decals = [t for f in decal_fams for t in pack_tiles(f) if not _is_opaque(t)]
+    if decals:
+        for _ in range(count):
+            im.alpha_composite(decals[rnd.randrange(len(decals))])
     return im
 
 
