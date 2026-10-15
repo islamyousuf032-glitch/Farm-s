@@ -174,17 +174,17 @@ def _pack_overlay(name, im, rnd):
     """Ground tiles use owner pack art; decals are composited on top of the procedural base."""
     rules = {
         # name: (opaque base family or None, decal families, decal count)
-        "grass_a": ("grass", ["grass", "grass_edge"], 3),
-        "grass_b": ("grass", ["grass", "variation"], 3),
-        "grass_c": ("grass", ["grass_edge", "variation"], 2),
-        "grass_flower": (None, ["grass", "variation"], 2),
-        "grass_dark": (None, ["grass", "grass_edge"], 3),
+        "grass_a": ("grass", ["grass"], 2),
+        "grass_b": ("grass", ["grass", "variation"], 2),
+        "grass_c": ("grass", ["variation"], 1),
+        "grass_flower": (None, ["grass"], 1),
+        "grass_dark": (None, ["grass"], 2),
         "soil_dry": (None, ["farmland"], 2),
         "soil_tilled": (None, ["farmland"], 3),
         "wet_soil": (None, ["farmland"], 2),
-        "path": (None, ["road"], 3),
-        "stone_path": (None, ["road"], 2),
-        "bank": (None, ["shoreline"], 3),
+        "path": (None, ["road"], 1),
+        "stone_path": (None, ["road"], 1),
+        "bank": (None, ["shoreline"], 1),
         "water_a": ("pond", [], 0),
         "water_b": ("pond", [], 0),
     }
@@ -683,7 +683,8 @@ def main():
         "bed": bed(rnd), "box": box_sprite(rnd), "table": table_sprite(rnd), "rug": rug_sprite(rnd),
     }
     for k, im in props.items():
-        im.save(out("props/%s.png" % k))
+        # Same outline rule as characters, so buildings and trees match the people.
+        outline(im).save(out("props/%s.png" % k))
 
     specs = {
         "ameena": {"skin": "#9a6443", "hair": "#e5e0da", "top": "#2e7d5b", "bottom": "#2e7d5b", "accent": "#b23a3a", "dupatta": True},
