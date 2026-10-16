@@ -244,10 +244,10 @@ def _pack_overlay(name, im, rnd):
     """Ground tiles use owner pack art; decals are composited on top of the procedural base."""
     rules = {
         # name: (opaque base group or None, decal groups, decal count)
-        "grass_a": ("grass_pack", ["grass_pack"], 2),
-        "grass_b": ("grass_pack", ["grass_pack", "grass_variation"], 2),
-        "grass_c": (None, ["grass_variation"], 1),
-        "grass_flower": (None, ["grass_pack"], 1),
+        "grass_a": ("grass_pack", ["grass_pack"], 1),
+        "grass_b": ("grass_pack", ["grass_pack"], 1),
+        "grass_c": ("grass_pack", ["grass_pack"], 1),
+        "grass_flower": ("grass_pack", ["grass_pack"], 1),
         "grass_dark": (None, ["grass_pack"], 2),
         "soil_dry": (None, ["soil"], 2),
         "soil_tilled": (None, ["soil"], 3),
