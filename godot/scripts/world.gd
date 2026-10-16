@@ -54,6 +54,7 @@ func load_map(id: String, pos: Vector2) -> void:
 	portals.clear()
 	crop_sprites.clear()
 	water_cells.clear()
+	_edge_layers.clear()
 	npcs.clear()
 	shelter_rects.clear()
 	shelter_doors.clear()
@@ -72,6 +73,8 @@ func load_map(id: String, pos: Vector2) -> void:
 	for y in range(h):
 		for x in range(w):
 			_paint(x, y, str(rows[y][x]))
+	_paint_edges(w, h)
+	_paint_water_decor()
 
 	for o in map["objects"]:
 		_place_object(o)
@@ -337,6 +340,84 @@ func _paint(x: int, y: int, ch: String) -> void:
 		_prop("bamboo", feet)
 	elif ch == "R":
 		_prop("rock", feet)
+
+
+# ---------------------------------------------------------------- transitions and pond decor
+# Edge layers: a grass cell beside a path, soil or bank, or a bank beside water, gets a
+# transition piece on the side that faces that neighbour. Each side has its own layer so
+# one cell can carry several edges.
+const EDGE_SIDES := {"N": Vector2i(0, -1), "E": Vector2i(1, 0), "S": Vector2i(0, 1), "W": Vector2i(-1, 0)}
+var _edge_layers: Dictionary = {}
+
+
+func _kind(ch: String) -> String:
+	match ch:
+		".", "f", "B", "R", "#":
+			return "grass"
+		"S":
+			return "soil"
+		"P":
+			return "path"
+		"T":
+			return "bank"
+		"W":
+			return "water"
+	return "other"
+
+
+func _edge_group(kind: String, nb: String) -> String:
+	if kind == "grass":
+		if nb == "path":
+			return "road"
+		if nb == "soil" or nb == "bank":
+			return "ragged"
+	elif kind == "soil" and nb == "grass":
+		return "ragged"
+	elif kind == "bank" and nb == "water":
+		return "shore"
+	return ""
+
+
+func _edge_layer(key: String) -> TileMapLayer:
+	if not _edge_layers.has(key):
+		var layer: TileMapLayer = TileMapLayer.new()
+		layer.tile_set = Art.tileset()
+		layer.z_index = -9
+		add_child(layer)
+		_edge_layers[key] = layer
+	return _edge_layers[key]
+
+
+func _paint_edges(w: int, h: int) -> void:
+	for y in range(h):
+		for x in range(w):
+			var c: Vector2i = Vector2i(x, y)
+			var kind: String = _kind(str(terrain.get(c, "")))
+			if kind == "other":
+				continue
+			for side in EDGE_SIDES:
+				var n: Vector2i = c + EDGE_SIDES[side]
+				if n.x < 0 or n.y < 0 or n.x >= w or n.y >= h:
+					continue
+				var nb: String = _kind(str(terrain.get(n, "")))
+				var grp: String = _edge_group(kind, nb)
+				if grp == "":
+					continue
+				_edge_layer(grp + "_" + side).set_cell(c, Art.tile_source(), Art.tile_atlas("edge_%s_%s" % [grp, side]))
+
+
+## Sparse lily and ripple pieces on pond cells, on their own layer so the water animation is untouched.
+func _paint_water_decor() -> void:
+	var layer: TileMapLayer = TileMapLayer.new()
+	layer.tile_set = Art.tileset()
+	layer.z_index = -9
+	add_child(layer)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 7
+	for c in water_cells:
+		if rng.randf() < 0.12:
+			var i: int = rng.randi() % 12
+			layer.set_cell(c, Art.tile_source(), Art.tile_atlas("wd_%02d" % i))
 
 
 func _place_object(o: Dictionary) -> void:

@@ -170,23 +170,93 @@ def _is_opaque(im):
     return im.getchannel("A").getextrema()[0] == 255
 
 
+# ---------------------------------------------------------------- transition + decor tiles
+EDGE_GROUPS = [("road", "grass_to_road"), ("ragged", "ragged_edge"), ("shore", "pond_shore")]
+SIDES = ["N", "E", "S", "W"]
+EDGE_NAMES = ["edge_%s_%s" % (g, sd) for g, _ in EDGE_GROUPS for sd in SIDES]
+DECOR_NAMES = ["wd_%02d" % i for i in range(12)]
+
+
+def _band_mean(im, side):
+    px = im.getchannel("A").load()
+    pts = {
+        "N": [(x, y) for y in range(0, 4) for x in range(16)],
+        "S": [(x, y) for y in range(12, 16) for x in range(16)],
+        "W": [(x, y) for x in range(0, 4) for y in range(16)],
+        "E": [(x, y) for x in range(12, 16) for y in range(16)],
+    }[side]
+    return sum(px[x, y] for x, y in pts) / (255.0 * len(pts))
+
+
+def _side_score(im, side):
+    """How much of the piece sits on one edge band, minus its opposite band and centre."""
+    others = [t for t in SIDES if t != side]
+    opp = {"N": "S", "S": "N", "E": "W", "W": "E"}[side]
+    center = 0.0
+    px = im.getchannel("A").load()
+    cpts = [(x, y) for y in range(4, 12) for x in range(4, 12)]
+    center = sum(px[x, y] for x, y in cpts) / (255.0 * len(cpts))
+    return _band_mean(im, side) - 0.6 * center - 0.4 * _band_mean(im, opp)
+
+
+def _rotate_side(im, src, dst):
+    """Rotate a piece so its src edge faces dst (clockwise steps)."""
+    order = ["N", "E", "S", "W"]
+    steps = (order.index(dst) - order.index(src)) % 4
+    return im.rotate(-90 * steps)
+
+
+def _strongest_edges(group, k=4):
+    """Top-k pieces by edge strength, each with its own strongest side."""
+    scored = []
+    for pic in pack_tiles(group):
+        best_side = max(SIDES, key=lambda sd: _side_score(pic, sd))
+        scored.append((_side_score(pic, best_side), pic, best_side))
+    scored.sort(key=lambda t: -t[0])
+    return scored[:k]
+
+
+def edge_tile(group, side):
+    """Transition piece for this group, rotated so its real edge faces `side`.
+
+    Uses the strongest edge pieces of the group, so the edge always lines up with the
+    tile side it is drawn on, whatever way the owner's art was oriented.
+    """
+    top = _strongest_edges(group)
+    if not top:
+        return Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    k = SIDES.index(side)
+    _, pic, src = top[k % len(top)]
+    return _rotate_side(pic, src, side)
+
+
+def decor_tiles():
+    """Twelve sparse pond-surface pieces (lily leaves, ripples), chosen deterministically."""
+    pics = [p for p in pack_tiles("pond_water") if not _is_opaque(p)]
+    pics = [p for p in pics if 0.05 <= _band_mean(p, "N") + _band_mean(p, "S") + _band_mean(p, "E") + _band_mean(p, "W") <= 2.0]
+    if not pics:
+        return [Image.new("RGBA", (16, 16), (0, 0, 0, 0))] * len(DECOR_NAMES)
+    step = max(1, len(pics) // len(DECOR_NAMES))
+    return [pics[(i * step) % len(pics)].copy() for i in range(len(DECOR_NAMES))]
+
+
 def _pack_overlay(name, im, rnd):
     """Ground tiles use owner pack art; decals are composited on top of the procedural base."""
     rules = {
-        # name: (opaque base family or None, decal families, decal count)
-        "grass_a": ("grass", ["grass"], 2),
-        "grass_b": ("grass", ["grass", "variation"], 2),
-        "grass_c": ("grass", ["variation"], 1),
-        "grass_flower": (None, ["grass"], 1),
-        "grass_dark": (None, ["grass"], 2),
-        "soil_dry": (None, ["farmland"], 2),
-        "soil_tilled": (None, ["farmland"], 3),
-        "wet_soil": (None, ["farmland"], 2),
-        "path": (None, ["road"], 1),
+        # name: (opaque base group or None, decal groups, decal count)
+        "grass_a": ("grass_pack", ["grass_pack"], 2),
+        "grass_b": ("grass_pack", ["grass_pack", "grass_variation"], 2),
+        "grass_c": (None, ["grass_variation"], 1),
+        "grass_flower": (None, ["grass_pack"], 1),
+        "grass_dark": (None, ["grass_pack"], 2),
+        "soil_dry": (None, ["soil"], 2),
+        "soil_tilled": (None, ["soil"], 3),
+        "wet_soil": (None, ["soil"], 2),
+        "path": (None, ["road"], 2),
         "stone_path": (None, ["road"], 1),
-        "bank": (None, ["shoreline"], 1),
-        "water_a": ("pond", [], 0),
-        "water_b": ("pond", [], 0),
+        "bank": (None, [], 0),
+        "water_a": ("pond_water", [], 0),
+        "water_b": ("pond_water", [], 0),
     }
     if name not in rules:
         return im
@@ -661,17 +731,26 @@ def portrait(char_front, rnd):
 
 def main():
     rnd = random.Random(20261013)
-    manifest = {"tiles": TILE_ORDER}
+    names = TILE_ORDER + EDGE_NAMES + DECOR_NAMES
+    manifest = {"tiles": names}
     with open(out("palette.json"), "w", encoding="utf-8") as f:
         json.dump(PALETTE, f, indent=1)
     # tiles atlas: 6 columns x 3 rows
     cols = 6
-    atlas = Image.new("RGBA", (cols * 16, ((len(TILE_ORDER) + cols - 1) // cols) * 16), (0, 0, 0, 0))
+    atlas = Image.new("RGBA", (cols * 16, ((len(names) + cols - 1) // cols) * 16), (0, 0, 0, 0))
     for i, name in enumerate(TILE_ORDER):
         atlas.paste(make_tile(name, rnd), ((i % cols) * 16, (i // cols) * 16))
+    idx = len(TILE_ORDER)
+    for g, grp in EDGE_GROUPS:
+        for sd in SIDES:
+            atlas.paste(edge_tile(grp, sd), ((idx % cols) * 16, (idx // cols) * 16))
+            idx += 1
+    for tile in decor_tiles():
+        atlas.paste(tile, ((idx % cols) * 16, (idx // cols) * 16))
+        idx += 1
     atlas.save(out("tiles/tiles.png"))
     with open(out("tiles/tiles.json"), "w", encoding="utf-8") as f:
-        json.dump({"names": TILE_ORDER, "cols": cols}, f, indent=1)
+        json.dump({"names": names, "cols": cols}, f, indent=1)
 
     props = {
         "tree_sal": tree_sal(rnd), "bamboo": bamboo(rnd),
