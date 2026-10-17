@@ -310,17 +310,19 @@ func _paint(x: int, y: int, ch: String) -> void:
 		".", "B", "R":
 			tname = "grass_%02d" % _pick_w(x, y, 1, GRASS_WEIGHTS)
 		"#":
-			tname = "grass_dark"
+			# ground under a tree uses the same grass as everywhere else (no darker per-zone patch)
+			tname = "grass_%02d" % _pick_w(x, y, 1, GRASS_WEIGHTS)
 		"f":
 			tname = "grass_%02d" % _pick_w(x, y, 1, GRASS_WEIGHTS)
 		"S":
-			tname = ("dirt_tilled_%02d" % _pick(x, y, 2, 3)) if (grid != null and grid.is_tilled(x, y)) else "dirt_dry"
+			# plain seamless fill; striped tilled look only for cells the player tilled (never random)
+			tname = "dirt_tilled_00" if (grid != null and grid.is_tilled(x, y)) else "dirt_fill"
 		"P":
 			tname = "road_fill"
 		"T":
-			tname = "bank"
+			tname = "mud_fill"
 		"W":
-			tname = "water_a"
+			tname = "water_fill"
 			water_cells.append(cell)
 		"h":
 			tname = "floor_wood"
@@ -374,7 +376,7 @@ func _edge_group(kind: String, nb: String) -> String:
 			return "road"
 		# grass beside soil/bank: no complete transition set exists in the packs, so a clean hard edge is used
 	elif kind == "bank" and nb == "water":
-		return "shore"
+		return ""  # no shore set: the 1-cell mud ring is a fill tile, not an edge
 	return ""
 
 
@@ -409,6 +411,8 @@ func _paint_edges(w: int, h: int) -> void:
 
 ## Sparse lily and ripple pieces on pond cells, on their own layer so the water animation is untouched.
 func _paint_water_decor() -> void:
+	# Disabled in round 2: the pond interior must be 100% the plain water fill.
+	return
 	var layer: TileMapLayer = TileMapLayer.new()
 	layer.tile_set = Art.tileset()
 	layer.z_index = -9
@@ -666,15 +670,9 @@ func catch_fish() -> void:
 # ---------------------------------------------------------------- visuals for soil & crops
 
 func _refresh_soil(c: Vector2i) -> void:
-	var tname: String = "soil_dry"
+	var tname: String = "dirt_fill"
 	if grid != null and grid.is_tilled(c.x, c.y):
-		tname = "wet_soil" if grid.is_watered(c.x, c.y) else "soil_tilled"
-	if tname == "soil_dry":
-		tname = "dirt_dry"
-	elif tname == "wet_soil":
-		tname = "dirt_wet"
-	else:
-		tname = "dirt_tilled_%02d" % _pick(c.x, c.y, 2, 3)
+		tname = "dirt_tilled_wet" if grid.is_watered(c.x, c.y) else "dirt_tilled_00"
 	ground.set_cell(c, Art.tile_source(), Art.tile_atlas(tname))
 
 

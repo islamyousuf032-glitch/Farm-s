@@ -172,11 +172,11 @@ def _is_opaque(im):
 
 
 # ---------------------------------------------------------------- transition + decor tiles
-EDGE_GROUPS = [("road", "grass_to_road"), ("shore", "pond_shore")]  # ragged blob set rejected in tile audit
+EDGE_GROUPS = [("road", "grass_to_road")]  # shore/cliff pieces removed (round 2)
 SIDES = ["N", "E", "S", "W"]
-EDGE_KS = {"road": 2, "shore": 1}   # pieces per side: road alternates 2 (never the same piece in a row), shore 1
+EDGE_KS = {"road": 2}   # road pieces per side: alternate 2 (never the same piece in a row)
 # Curated ground palette (see tools/curate_palette.py, tile_manifest.csv): fixed PNGs in godot/art/curated/.
-CUR_NAMES = ["grass_00", "grass_01", "grass_02", "dirt_dry", "dirt_tilled_00", "dirt_tilled_01", "dirt_tilled_02", "dirt_wet", "road_fill"]
+CUR_NAMES = ["grass_00", "grass_01", "grass_02", "dirt_fill", "dirt_tilled_00", "dirt_tilled_wet", "road_fill", "water_fill", "mud_fill"]
 EDGE_NAMES = ["edge_%s_%s_%02d" % (g, sd, k) for g, _ in EDGE_GROUPS for sd in SIDES for k in range(EDGE_KS[g])]
 WD_N, GD_N = 6, 6                   # 12 decor sprites in total
 WD_NAMES = ["wd_%02d" % i for i in range(WD_N)]    # pond-surface decor

@@ -47,6 +47,7 @@ static func tile_atlas(name: String) -> Vector2i:
 	_load_tile_meta()
 	var i: int = _tile_names.find(name)
 	if i < 0:
+		push_warning("Art: missing tile name '%s' (atlas out of date?)" % name)
 		i = 0
 	return Vector2i(i % _tile_cols, i / _tile_cols)
 
