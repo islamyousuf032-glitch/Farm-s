@@ -31,3 +31,9 @@ Rejected: the old dirt_dry (border +21), dirt_wet (+6), old road_fill (−15, se
 
 ## Not verified here
 - Godot is not installed in this sandbox. The game was not run locally, so close-up screenshots and hoe/NPC checks depend on CI.
+
+## Update (v2.0.60)
+- Pond stripes were also caused by the water timer, which swapped in the banded `water_a`/`water_b` tiles. The timer is now a no-op, so the water stays on `water_fill`.
+- Village CI screenshot after this build: path continuous, pond interior uninterrupted, mud ring 1 cell thick.
+- Known limits: the mud ring is a dark brown fill, not a thin shoreline (no flat muddy shore set exists). The path fill has a faint mirrored pattern.
+- Close-up 2× screenshots were not produced: Godot runs only in CI, which captures default-camera screens.
