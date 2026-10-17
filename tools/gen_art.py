@@ -8,6 +8,7 @@ import json
 import math
 import os
 import random
+import zlib
 
 from PIL import Image, ImageDraw
 
@@ -173,8 +174,13 @@ def _is_opaque(im):
 # ---------------------------------------------------------------- transition + decor tiles
 EDGE_GROUPS = [("road", "grass_to_road"), ("ragged", "ragged_edge"), ("shore", "pond_shore")]
 SIDES = ["N", "E", "S", "W"]
-EDGE_NAMES = ["edge_%s_%s" % (g, sd) for g, _ in EDGE_GROUPS for sd in SIDES]
-DECOR_NAMES = ["wd_%02d" % i for i in range(12)]
+EDGE_K = 8                      # transition pieces per group and side
+VARIANTS = {"grass": 8, "path": 6, "soil_dry": 4, "soil_tilled": 4, "wet_soil": 4}
+VAR_NAMES = ["%s_v%02d" % (b, i) for b, n in VARIANTS.items() for i in range(n)]
+EDGE_NAMES = ["edge_%s_%s_%02d" % (g, sd, k) for g, _ in EDGE_GROUPS for sd in SIDES for k in range(EDGE_K)]
+WD_N, GD_N = 24, 16
+WD_NAMES = ["wd_%02d" % i for i in range(WD_N)]    # pond-surface decor
+GD_NAMES = ["gd_%02d" % i for i in range(GD_N)]    # grass decor
 
 
 def _band_mean(im, side):
@@ -228,6 +234,29 @@ def edge_tile(group, side):
     k = SIDES.index(side)
     _, pic, src = top[k % len(top)]
     return _rotate_side(pic, src, side)
+
+
+def variant_image(name):
+    """A ground variant: same ground type, different decals (seeded by its name)."""
+    base, idx = name.rsplit("_v", 1)
+    src = ["grass_a", "grass_b", "grass_c"][int(idx) % 3] if base == "grass" else base
+    return make_tile(src, random.Random(zlib.crc32(name.encode())))
+
+
+def edge_variant(group, side, k):
+    top = _strongest_edges(group, k=EDGE_K)
+    if not top:
+        return Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    _, pic, src = top[k % len(top)]
+    return _rotate_side(pic, src, side)
+
+
+def decor_pool(groups, n, lo, hi):
+    """n sparse pieces from several groups, spread evenly across the pool."""
+    pics = [p for g in groups for p in pack_tiles(g) if not _is_opaque(p)]
+    pics = [p for p in pics if lo <= sum(p.getchannel("A").getdata()) / (255.0 * 256) <= hi] or pics
+    step = max(1, len(pics) // n)
+    return [pics[(i * step) % len(pics)].copy() for i in range(n)]
 
 
 def decor_tiles():
@@ -731,23 +760,20 @@ def portrait(char_front, rnd):
 
 def main():
     rnd = random.Random(20261013)
-    names = TILE_ORDER + EDGE_NAMES + DECOR_NAMES
+    names = TILE_ORDER + VAR_NAMES + EDGE_NAMES + WD_NAMES + GD_NAMES
     manifest = {"tiles": names}
-    with open(out("palette.json"), "w", encoding="utf-8") as f:
-        json.dump(PALETTE, f, indent=1)
-    # tiles atlas: 6 columns x 3 rows
+    # tiles atlas: 6 columns, one tile per name
     cols = 6
-    atlas = Image.new("RGBA", (cols * 16, ((len(names) + cols - 1) // cols) * 16), (0, 0, 0, 0))
-    for i, name in enumerate(TILE_ORDER):
-        atlas.paste(make_tile(name, rnd), ((i % cols) * 16, (i // cols) * 16))
-    idx = len(TILE_ORDER)
-    for g, grp in EDGE_GROUPS:
-        for sd in SIDES:
-            atlas.paste(edge_tile(grp, sd), ((idx % cols) * 16, (idx // cols) * 16))
-            idx += 1
-    for tile in decor_tiles():
-        atlas.paste(tile, ((idx % cols) * 16, (idx // cols) * 16))
-        idx += 1
+    images = [make_tile(n, rnd) for n in TILE_ORDER]
+    images += [variant_image(n) for n in VAR_NAMES]
+    images += [edge_variant(grp, sd, k) for _, grp in EDGE_GROUPS for sd in SIDES for k in range(EDGE_K)]
+    images += decor_pool(["pond_water"], WD_N, 0.02, 0.6)
+    images += decor_pool(["grass_variation", "grass_pack"], GD_N, 0.03, 0.5)
+    assert len(images) == len(names), (len(images), len(names))
+    rows_n = (len(names) + cols - 1) // cols
+    atlas = Image.new("RGBA", (cols * 16, rows_n * 16), (0, 0, 0, 0))
+    for i, im in enumerate(images):
+        atlas.paste(im, ((i % cols) * 16, (i // cols) * 16))
     atlas.save(out("tiles/tiles.png"))
     with open(out("tiles/tiles.json"), "w", encoding="utf-8") as f:
         json.dump({"names": names, "cols": cols}, f, indent=1)

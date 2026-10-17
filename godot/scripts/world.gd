@@ -75,6 +75,7 @@ func load_map(id: String, pos: Vector2) -> void:
 			_paint(x, y, str(rows[y][x]))
 	_paint_edges(w, h)
 	_paint_water_decor()
+	_paint_grass_decor(w, h)
 
 	for o in map["objects"]:
 		_place_object(o)
@@ -304,19 +305,18 @@ func _paint(x: int, y: int, ch: String) -> void:
 	var cell: Vector2i = Vector2i(x, y)
 	terrain[cell] = ch
 	var n: int = (x * 7 + y * 13) % 3
-	var grass: Array = ["grass_a", "grass_b", "grass_c"]
 	var tname: String = "grass_a"
 	match ch:
 		".", "B", "R":
-			tname = grass[n]
+			tname = "grass_v%02d" % _pick(x, y, 1, 8)
 		"#":
 			tname = "grass_dark"
 		"f":
 			tname = "grass_flower"
 		"S":
-			tname = "soil_tilled" if (grid != null and grid.is_tilled(x, y)) else "soil_dry"
+			tname = ("soil_tilled" if (grid != null and grid.is_tilled(x, y)) else "soil_dry") + "_v%02d" % _pick(x, y, 2, 4)
 		"P":
-			tname = "path"
+			tname = "path_v%02d" % _pick(x, y, 3, 6)
 		"T":
 			tname = "bank"
 		"W":
@@ -403,7 +403,8 @@ func _paint_edges(w: int, h: int) -> void:
 				var grp: String = _edge_group(kind, nb)
 				if grp == "":
 					continue
-				_edge_layer(grp + "_" + side).set_cell(c, Art.tile_source(), Art.tile_atlas("edge_%s_%s" % [grp, side]))
+				var k: int = _pick(x, y, side.unicode_at(0), 8)
+				_edge_layer(grp + "_" + side).set_cell(c, Art.tile_source(), Art.tile_atlas("edge_%s_%s_%02d" % [grp, side, k]))
 
 
 ## Sparse lily and ripple pieces on pond cells, on their own layer so the water animation is untouched.
@@ -415,9 +416,33 @@ func _paint_water_decor() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 7
 	for c in water_cells:
-		if rng.randf() < 0.12:
-			var i: int = rng.randi() % 12
+		if rng.randf() < 0.22:
+			var i: int = rng.randi() % 24
 			layer.set_cell(c, Art.tile_source(), Art.tile_atlas("wd_%02d" % i))
+
+
+## Sparse grass decor (flowers, tufts, small weeds) on open grass only, never under trees or rocks.
+func _paint_grass_decor(w: int, h: int) -> void:
+	var layer: TileMapLayer = TileMapLayer.new()
+	layer.tile_set = Art.tileset()
+	layer.z_index = -9
+	add_child(layer)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 11
+	for y in range(h):
+		for x in range(w):
+			var c: Vector2i = Vector2i(x, y)
+			var ch: String = str(terrain.get(c, ""))
+			if ch != "." and ch != "f":
+				continue
+			if rng.randf() < 0.07:
+				layer.set_cell(c, Art.tile_source(), Art.tile_atlas("gd_%02d" % (rng.randi() % 16)))
+
+
+## Stable pseudo-random pick in 0..n-1 for a cell, so the same map always looks the same.
+func _pick(x: int, y: int, salt: int, n: int) -> int:
+	var hsh: int = (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)
+	return absi(hsh) % n
 
 
 func _place_object(o: Dictionary) -> void:
@@ -614,6 +639,7 @@ func _refresh_soil(c: Vector2i) -> void:
 	var tname: String = "soil_dry"
 	if grid != null and grid.is_tilled(c.x, c.y):
 		tname = "wet_soil" if grid.is_watered(c.x, c.y) else "soil_tilled"
+	tname += "_v%02d" % _pick(c.x, c.y, 2, 4)
 	ground.set_cell(c, Art.tile_source(), Art.tile_atlas(tname))
 
 
