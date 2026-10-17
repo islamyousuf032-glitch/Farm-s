@@ -279,11 +279,9 @@ func _on_time_changed() -> void:
 
 
 func _on_water_tick() -> void:
-	_water_phase = 1 - _water_phase
-	var tname: String = "water_a" if _water_phase == 0 else "water_b"
-	var atlas: Vector2i = Art.tile_atlas(tname)
-	for c in water_cells:
-		ground.set_cell(c, Art.tile_source(), atlas)
+	# Round 2: no swapping. The banded water_a/water_b tiles caused the stripes, and the
+	# pond must stay 100% the single plain water_fill tile.
+	return
 
 
 func _tex(path: String) -> Texture2D:
