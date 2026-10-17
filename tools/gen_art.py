@@ -172,13 +172,13 @@ def _is_opaque(im):
 
 
 # ---------------------------------------------------------------- transition + decor tiles
-EDGE_GROUPS = [("road", "grass_to_road"), ("ragged", "ragged_edge"), ("shore", "pond_shore")]
+EDGE_GROUPS = [("road", "grass_to_road"), ("shore", "pond_shore")]  # ragged blob set rejected in tile audit
 SIDES = ["N", "E", "S", "W"]
-EDGE_K = 8                      # transition pieces per group and side
-VARIANTS = {"grass": 8, "path": 6, "soil_dry": 4, "soil_tilled": 4, "wet_soil": 4}
-VAR_NAMES = ["%s_v%02d" % (b, i) for b, n in VARIANTS.items() for i in range(n)]
-EDGE_NAMES = ["edge_%s_%s_%02d" % (g, sd, k) for g, _ in EDGE_GROUPS for sd in SIDES for k in range(EDGE_K)]
-WD_N, GD_N = 24, 16
+EDGE_KS = {"road": 2, "shore": 1}   # pieces per side: road alternates 2 (never the same piece in a row), shore 1
+# Curated ground palette (see tools/curate_palette.py, tile_manifest.csv): fixed PNGs in godot/art/curated/.
+CUR_NAMES = ["grass_00", "grass_01", "grass_02", "dirt_dry", "dirt_tilled_00", "dirt_tilled_01", "dirt_tilled_02", "dirt_wet", "road_fill"]
+EDGE_NAMES = ["edge_%s_%s_%02d" % (g, sd, k) for g, _ in EDGE_GROUPS for sd in SIDES for k in range(EDGE_KS[g])]
+WD_N, GD_N = 6, 6                   # 12 decor sprites in total
 WD_NAMES = ["wd_%02d" % i for i in range(WD_N)]    # pond-surface decor
 GD_NAMES = ["gd_%02d" % i for i in range(GD_N)]    # grass decor
 
@@ -244,7 +244,7 @@ def variant_image(name):
 
 
 def edge_variant(group, side, k):
-    top = _strongest_edges(group, k=EDGE_K)
+    top = _strongest_edges(group, k=2)
     if not top:
         return Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     _, pic, src = top[k % len(top)]
@@ -760,13 +760,13 @@ def portrait(char_front, rnd):
 
 def main():
     rnd = random.Random(20261013)
-    names = TILE_ORDER + VAR_NAMES + EDGE_NAMES + WD_NAMES + GD_NAMES
+    names = TILE_ORDER + CUR_NAMES + EDGE_NAMES + WD_NAMES + GD_NAMES
     manifest = {"tiles": names}
     # tiles atlas: 6 columns, one tile per name
     cols = 6
     images = [make_tile(n, rnd) for n in TILE_ORDER]
-    images += [variant_image(n) for n in VAR_NAMES]
-    images += [edge_variant(grp, sd, k) for _, grp in EDGE_GROUPS for sd in SIDES for k in range(EDGE_K)]
+    images += [Image.open(os.path.join(ROOT, "curated", n + ".png")).convert("RGBA") for n in CUR_NAMES]
+    images += [edge_variant(grp, sd, k) for g, grp in EDGE_GROUPS for sd in SIDES for k in range(EDGE_KS[g])]
     images += decor_pool(["pond_water"], WD_N, 0.02, 0.6)
     images += decor_pool(["grass_variation", "grass_pack"], GD_N, 0.03, 0.5)
     assert len(images) == len(names), (len(images), len(names))

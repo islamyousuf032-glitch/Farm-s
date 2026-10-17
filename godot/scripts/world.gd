@@ -308,15 +308,15 @@ func _paint(x: int, y: int, ch: String) -> void:
 	var tname: String = "grass_a"
 	match ch:
 		".", "B", "R":
-			tname = "grass_v%02d" % _pick(x, y, 1, 8)
+			tname = "grass_%02d" % _pick_w(x, y, 1, GRASS_WEIGHTS)
 		"#":
 			tname = "grass_dark"
 		"f":
-			tname = "grass_flower"
+			tname = "grass_%02d" % _pick_w(x, y, 1, GRASS_WEIGHTS)
 		"S":
-			tname = ("soil_tilled" if (grid != null and grid.is_tilled(x, y)) else "soil_dry") + "_v%02d" % _pick(x, y, 2, 4)
+			tname = ("dirt_tilled_%02d" % _pick(x, y, 2, 3)) if (grid != null and grid.is_tilled(x, y)) else "dirt_dry"
 		"P":
-			tname = "path_v%02d" % _pick(x, y, 3, 6)
+			tname = "road_fill"
 		"T":
 			tname = "bank"
 		"W":
@@ -346,6 +346,9 @@ func _paint(x: int, y: int, ch: String) -> void:
 # Edge layers: a grass cell beside a path, soil or bank, or a bank beside water, gets a
 # transition piece on the side that faces that neighbour. Each side has its own layer so
 # one cell can carry several edges.
+const GRASS_WEIGHTS: Array = [70, 20, 10]  # grass_00 / grass_01 / grass_02 (curated plain grass)
+const WD_COUNT := 6  # pond decor sprites (wd_00..wd_05)
+const GD_COUNT := 6  # grass decor sprites (gd_00..gd_05)
 const EDGE_SIDES := {"N": Vector2i(0, -1), "E": Vector2i(1, 0), "S": Vector2i(0, 1), "W": Vector2i(-1, 0)}
 var _edge_layers: Dictionary = {}
 
@@ -369,10 +372,7 @@ func _edge_group(kind: String, nb: String) -> String:
 	if kind == "grass":
 		if nb == "path":
 			return "road"
-		if nb == "soil" or nb == "bank":
-			return "ragged"
-	elif kind == "soil" and nb == "grass":
-		return "ragged"
+		# grass beside soil/bank: no complete transition set exists in the packs, so a clean hard edge is used
 	elif kind == "bank" and nb == "water":
 		return "shore"
 	return ""
@@ -403,7 +403,7 @@ func _paint_edges(w: int, h: int) -> void:
 				var grp: String = _edge_group(kind, nb)
 				if grp == "":
 					continue
-				var k: int = _pick(x, y, side.unicode_at(0), 8)
+				var k: int = (x + y) % 2 if grp == "road" else 0  # alternate, so no piece repeats along a straight border
 				_edge_layer(grp + "_" + side).set_cell(c, Art.tile_source(), Art.tile_atlas("edge_%s_%s_%02d" % [grp, side, k]))
 
 
@@ -416,8 +416,8 @@ func _paint_water_decor() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 7
 	for c in water_cells:
-		if rng.randf() < 0.22:
-			var i: int = rng.randi() % 24
+		if rng.randf() < 0.05:
+			var i: int = rng.randi() % WD_COUNT
 			layer.set_cell(c, Art.tile_source(), Art.tile_atlas("wd_%02d" % i))
 
 
@@ -429,14 +429,44 @@ func _paint_grass_decor(w: int, h: int) -> void:
 	add_child(layer)
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 11
+	var placed_decor: Array = []
 	for y in range(h):
 		for x in range(w):
 			var c: Vector2i = Vector2i(x, y)
 			var ch: String = str(terrain.get(c, ""))
 			if ch != "." and ch != "f":
 				continue
-			if rng.randf() < 0.07:
-				layer.set_cell(c, Art.tile_source(), Art.tile_atlas("gd_%02d" % (rng.randi() % 16)))
+			# exclusion zone: keep one free grass cell around paths, soil, water, banks, trees and buildings
+			var clear: bool = true
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var nch: String = str(terrain.get(c + Vector2i(dx, dy), "#"))
+					if nch != "." and nch != "f":
+						clear = false
+			if not clear:
+				continue
+			if rng.randf() < 0.03 and _decor_gap_ok(c, placed_decor):
+				placed_decor.append(c)
+				layer.set_cell(c, Art.tile_source(), Art.tile_atlas("gd_%02d" % (rng.randi() % GD_COUNT)))
+
+
+## Weighted pick over n = weights.size() options, deterministic per cell.
+func _pick_w(x: int, y: int, salt: int, weights: Array) -> int:
+	var r: int = _pick(x, y, salt, 100)
+	var acc: int = 0
+	for i in range(weights.size()):
+		acc += int(weights[i])
+		if r < acc:
+			return i
+	return weights.size() - 1
+
+
+## Decor must sit at least 2 cells apart (Chebyshev distance).
+func _decor_gap_ok(c: Vector2i, placed: Array) -> bool:
+	for p in placed:
+		if absi(p.x - c.x) < 2 and absi(p.y - c.y) < 2:
+			return false
+	return true
 
 
 ## Stable pseudo-random pick in 0..n-1 for a cell, so the same map always looks the same.
@@ -639,7 +669,12 @@ func _refresh_soil(c: Vector2i) -> void:
 	var tname: String = "soil_dry"
 	if grid != null and grid.is_tilled(c.x, c.y):
 		tname = "wet_soil" if grid.is_watered(c.x, c.y) else "soil_tilled"
-	tname += "_v%02d" % _pick(c.x, c.y, 2, 4)
+	if tname == "soil_dry":
+		tname = "dirt_dry"
+	elif tname == "wet_soil":
+		tname = "dirt_wet"
+	else:
+		tname = "dirt_tilled_%02d" % _pick(c.x, c.y, 2, 3)
 	ground.set_cell(c, Art.tile_source(), Art.tile_atlas(tname))
 
 
